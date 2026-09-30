@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vertex Work Manager</title>
+<meta name="theme-color" content="#F4F2EE">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5 22 21H2z' fill='none' stroke='%23141414' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M17.3 11.6 22 21h-9.4z' fill='%23E01F26'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#F4F2EE; --side:#EDEAE4; --card:#FFFFFF; --ink:#141414; --ink2:#5E5C58; --muted:#8C8A85;
+  --line:#E4E1DB; --line2:#D6D2CB; --red:#E01F26; --red-soft:#FCE9EA; --green:#1F8A4C; --green-soft:#E7F4EC;
+  --amber:#B26B00; --amber-soft:#FBF1E0; --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Montserrat,system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+.hidden{display:none!important}
+
+/* layout */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.side{background:var(--side);padding:24px 16px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 12px 24px;font-weight:700;letter-spacing:.08em;font-size:13px}
+.brand svg{width:26px;height:26px}
+.nav-h{font-size:11px;letter-spacing:.12em;color:var(--muted);padding:16px 12px 6px;font-weight:600}
+.nav a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;text-decoration:none;color:var(--ink2);font-weight:500;cursor:pointer}
+.nav a svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav a:hover{background:#E4E0D9}
+.nav a.on{background:var(--card);color:var(--ink);font-weight:600}
+.nav a.on svg{stroke:var(--red)}
+.side .foot{margin-top:auto;font-size:11px;color:var(--muted);padding:0 12px}
+.main{padding:32px 36px 60px;min-width:0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.top h1{font-size:22px;font-weight:600;margin:0}
+.top .sub{color:var(--muted);font-size:12px;margin-top:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* buttons */
+.btn{border:1px solid var(--line2);background:var(--card);padding:9px 16px;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.red{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.icon-btn{border:0;background:transparent;cursor:pointer;padding:6px;border-radius:8px;color:var(--muted);display:inline-flex}
+.icon-btn:hover{background:var(--bg);color:var(--ink)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* dashboard panel */
+.panel{background:var(--card);border-radius:16px;border:1px solid var(--line)}
+.grid-top{display:grid;grid-template-columns:1.7fr 1fr}
+.grid-bot{display:grid;grid-template-columns:1fr 1fr 1.2fr;border-top:1px solid var(--line)}
+.cell{padding:26px 28px;min-width:0}
+.grid-top .cell+.cell{border-left:1px solid var(--line)}
+.grid-bot .cell+.cell{border-left:1px solid var(--line)}
+.cell-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.cell-h h3{font-size:15px;font-weight:600;margin:0 0 6px}
+.cell-h .note{color:var(--muted);font-size:12px}
+.big{font-size:28px;font-weight:600;margin:10px 0 4px;letter-spacing:-.01em}
+.delta{font-size:12px;color:var(--muted)}
+.delta b{font-weight:600}
+.delta .up{color:var(--green)} .delta .down{color:var(--red)}
+.chart-box{position:relative;height:220px;margin-top:18px}
+.legend{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--ink2)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+/* stat tiles */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.stat .l{font-size:12px;color:var(--muted);font-weight:500}
+.stat .v{font-size:22px;font-weight:600;margin-top:8px}
+.stat .v.red{color:var(--red)}
+.stat .s{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* bar list */
+.blist{margin-top:18px;display:flex;flex-direction:column;gap:14px}
+.brow .t{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;gap:10px}
+.brow .t span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow .t b{font-weight:600;white-space:nowrap}
+.brow .t small{color:var(--muted);font-weight:500;margin-left:6px}
+.track{height:6px;background:var(--bg);border-radius:4px;overflow:hidden}
+.fill{height:100%;background:var(--red);border-radius:4px}
+
+/* list rows */
+.list{margin-top:14px}
+.li{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.av{width:36px;height:36px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-weight:600;font-size:12px;flex:none;color:var(--ink)}
+.av.red{background:var(--red-soft);color:var(--red)}
+.li .n{flex:1;min-width:0}
+.li .n div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .n small{color:var(--muted);font-size:11px}
+.li .amt{font-weight:600;white-space:nowrap}
+.empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
+
+/* section cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+.two{display:grid;grid-template-columns:1fr 1.4fr;gap:18px;margin-top:18px}
+.card h3{font-size:15px;font-weight:600;margin:0}
+
+/* table */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.inp,.sel{border:1px solid var(--line2);background:var(--card);border-radius:10px;padding:9px 12px;min-width:0}
+.inp:focus,.sel:focus,textarea:focus{outline:2px solid var(--ink);outline-offset:-1px}
+.search{flex:1;min-width:180px}
+.tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:14px 16px;border-bottom:1px solid var(--line);white-space:nowrap;background:#FBFAF8}
+td{padding:13px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#FBFAF8}
+td.num,th.num{text-align:right}
+td.wrap{white-space:normal;min-width:160px;color:var(--ink2)}
+tfoot td{font-weight:600;background:#FBFAF8;border-top:1px solid var(--line)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:0;cursor:pointer}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-paid{background:var(--green-soft);color:var(--green)}
+.p-unpaid{background:var(--red-soft);color:var(--red)}
+.p-done{background:var(--green-soft);color:var(--green)}
+.p-prog{background:var(--amber-soft);color:var(--amber)}
+.p-pend{background:var(--bg);color:var(--ink2)}
+
+/* client cards */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.ccard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;cursor:pointer}
+.ccard:hover{border-color:var(--ink)}
+.ccard .hd{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.ccard .hd b{display:block;font-weight:600}
+.ccard .hd small{color:var(--muted);font-size:12px}
+.ccard .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);padding-top:14px}
+.ccard .row3 span{display:block;font-size:11px;color:var(--muted)}
+.ccard .row3 b{font-size:14px;font-weight:600}
+
+/* plans */
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;display:flex;flex-direction:column}
+.plan.hot{border:2px solid var(--ink)}
+.plan .nm{font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.plan .pr{font-size:30px;font-weight:700;margin:10px 0 2px}
+.plan .pr small{font-size:13px;color:var(--muted);font-weight:500}
+.plan .bf{font-size:12px;color:var(--ink2);margin-bottom:18px}
+.plan ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;font-size:13px}
+.plan li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding-bottom:8px}
+.plan li span{color:var(--ink2)}
+.plan li b{font-weight:600;text-align:right}
+.plan .adv{margin-top:auto;padding-top:16px;font-size:12px;color:var(--muted)}
+
+/* modal / drawer */
+.ov{position:fixed;inset:0;background:rgba(20,20,20,.35);display:flex;justify-content:flex-end;z-index:50}
+.ov.center{justify-content:center;align-items:center}
+.drawer{background:var(--card);width:min(460px,100%);height:100%;display:flex;flex-direction:column;animation:slide .2s ease}
+.dialog{background:var(--card);width:min(420px,calc(100% - 32px));border-radius:16px;padding:24px}
+@keyframes slide{from{transform:translateX(30px);opacity:0}}
+.dr-h{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--line)}
+.dr-h h2{font-size:17px;margin:0;font-weight:600}
+.dr-b{padding:20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px}
+.dr-f{padding:16px 24px;border-top:1px solid var(--line);background:#FBFAF8}
+.fld label{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px}
+.fld .inp,.fld .sel,.fld textarea{width:100%}
+.fld textarea{border:1px solid var(--line2);border-radius:10px;padding:9px 12px;resize:vertical;min-height:70px}
+.fld .hint{font-size:11px;color:var(--muted);margin-top:5px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:flex;background:var(--bg);border-radius:10px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 0 0 1px var(--line2)}
+.stepper{display:flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.stepper button{border:0;background:var(--bg);width:40px;cursor:pointer;font-size:16px}
+.stepper input{border:0;width:100%;text-align:center;padding:9px 0}
+.sum{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:12px;color:var(--ink2)}
+.sum b{font-size:20px;color:var(--red)}
+.full{width:100%;justify-content:center;padding:12px}
+
+/* login */
+.login{min-height:100vh;display:grid;place-items:center;padding:24px}
+.lbox{width:min(380px,100%);text-align:center}
+.lbox svg.logo{width:52px;height:52px;margin-bottom:18px}
+.lbox h1{font-size:22px;margin:0 0 6px;font-weight:700;letter-spacing:.04em}
+.lbox p{color:var(--muted);margin:0 0 28px;font-size:13px}
+.lbox .fld{text-align:left;margin-bottom:14px}
+.pin{letter-spacing:.6em;text-align:center;font-size:20px;font-weight:600}
+.err{color:var(--red);font-size:12px;min-height:18px;margin:4px 0 10px}
+.demo-link{margin-top:18px;font-size:12px;color:var(--muted)}
+.demo-link a{color:var(--ink);font-weight:600;cursor:pointer}
+
+/* misc */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:99;max-width:90vw}
+.toast.bad{background:var(--red)}
+.loader{position:fixed;top:0;left:0;right:0;height:3px;background:var(--red);transform-origin:left;animation:load 1.2s ease-in-out infinite;z-index:100}
+@keyframes load{0%{transform:scaleX(0)}60%{transform:scaleX(.8)}100%{transform:scaleX(1);opacity:0}}
+.banner{background:var(--amber-soft);color:var(--amber);padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:16px;font-weight:500}
+.fab{display:none}
+.tabbar{display:none}
+.muted{color:var(--muted)}
+.set-card{max-width:560px;display:flex;flex-direction:column;gap:16px}
+
+/* mobile */
+@media (max-width:1100px){
+  .grid-bot{grid-template-columns:1fr 1fr}
+  .grid-bot .cell:last-child{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .main{padding:20px 16px 110px}
+  .grid-top,.grid-bot,.two,.pgrid{grid-template-columns:1fr}
+  .grid-top .cell+.cell,.grid-bot .cell+.cell{border-left:0;border-top:1px solid var(--line)}
+  .grid-bot .cell:last-child{grid-column:auto}
+  .cell{padding:20px}
+  .top h1{font-size:19px}
+  .top .actions .btn.hide-m{display:none}
+  .tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:40}
+  .tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;color:var(--muted);padding:6px 0;cursor:pointer;text-decoration:none}
+  .tabbar a svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tabbar a.on{color:var(--ink)}
+  .tabbar a.on svg{stroke:var(--red)}
+  .fab{display:grid;place-items:center;position:fixed;right:18px;bottom:84px;width:56px;height:56px;border-radius:50%;background:var(--red);color:#fff;border:0;z-index:41;cursor:pointer}
+  .fab svg{width:24px;height:24px;stroke:#fff;stroke-width:2.4;fill:none;stroke-linecap:round}
+  .drawer{width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login" class="login hidden">
+  <div class="lbox">
+    <svg class="logo" viewBox="0 0 24 24"><path d="M12 2.5 22 21H2z" fill="none" stroke="#141414" stroke-width="1.6" stroke-linejoin="round"/><path d="M17.3 11.6 22 21h-9.4z" fill="#E01F26"/></svg>
+    <h1>VERTEX MEDIA</h1>
+    <p>Work manager. Enter your PIN to continue.</p>
+    <div class="fld" id="urlFld">
+      <label>Apps Script URL</label>
+      <input class="inp" id="lUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="hint">Sirf pehli baar. Setup guide mein URL milega.</div>
+    </div>
+    <div class="fld">
+      <label>PIN</label>
+      <input class="inp pin" id="lPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8">
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink2);margin-bottom:6px;justify-content:center"><input type="checkbox" id="lRem"> Remember me on this device</label>
+    <div class="err" id="lErr"></div>
+    <button class="btn red full" id="lBtn">Unlock</button>
+    <div class="demo-link">Sirf design dekhna hai? <a id="demoBtn">Open demo</a></div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="app hidden">
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 24 24"><path d="M12 2.5 22 21H2z" fill="none" stroke="#141414" stroke-width="1.8" stroke-linejoin="round"/><path d="M17.3 11.6 22 21h-9.4z" fill="#E01F26"/></svg>
+      VERTEX MEDIA
+    </div>
+    <nav class="nav" id="sideNav"></nav>
+    <div class="foot" id="sideFoot"></div>
+  </aside>
+  <main class="main">
+    <div id="demoBanner" class="banner hidden">Demo mode: sample data hai, sheet mein kuch save nahi hoga. <a style="cursor:pointer;text-decoration:underline" onclick="logout()">Exit demo</a></div>
+    <div id="view"></div>
+  </main>
+</div>
+<nav class="tabbar hidden" id="tabbar"></nav>
+<button class="fab hidden" id="fab" aria-label="Add entry" onclick="openEntry()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<div id="modalRoot"></div>
+
+<script>
+/* ============ CONFIG ============ */
+// Optional: apna Apps Script URL yahan paste kar do, phir login pe URL nahi maangega.
+const DEFAULT_API_URL = '';
+
+/* ============ ICONS ============ */
+const I = {
+  dash:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  list:'<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  users:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.5 3.5 5.2"/></svg>',
+  tag:'<svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>',
+  box:'<svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+  gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  sheet:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  edit:'<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  x:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  refresh:'<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
+  wa:'<svg viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/></svg>',
+  more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>'
+};
+
+/* ============ STATE ============ */
+const S = { data:{entries:[],services:[],plans:[],sheetUrl:''}, view:'dashboard', demo:false, charts:[], filters:{q:'',month:'',payment:'',status:''} };
+const CFG = { url:'', pin:'' };
+
+function store(){ try{ return localStorage; }catch(e){ return null; } }
+function sstore(){ try{ return sessionStorage; }catch(e){ return null; } }
+function loadCfg(){
+  const ls=store(), ss=sstore();
+  CFG.url = DEFAULT_API_URL || (ls && ls.getItem('vx_url')) || '';
+  CFG.pin = (ls && ls.getItem('vx_pin')) || (ss && ss.getItem('vx_pin')) || '';
+}
+function saveCfg(remember){
+  const ls=store(), ss=sstore();
+  try{
+    if(ls) ls.setItem('vx_url', CFG.url);
+    if(remember && ls){ ls.setItem('vx_pin', CFG.pin); }
+    else { if(ls) ls.removeItem('vx_pin'); if(ss) ss.setItem('vx_pin', CFG.pin); }
+  }catch(e){}
+}
+
+/* ============ UTIL ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => '₹' + Math.round(Number(n)||0).toLocaleString('en-IN');
+const ymd = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today = () => ymd(new Date());
+const mKey = s => String(s||'').slice(0,7);
+const pDate = s => { const p=String(s).split('-'); return new Date(+p[0], (+p[1]||1)-1, +p[2]||1); };
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const mLabel = k => { const [y,m]=k.split('-'); return MONTHS[+m-1]+' '+y; };
+const dLabel = s => { if(!s) return ''; const d=pDate(s); return d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); };
+const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+function monthKeys(n){ const out=[]; const d=new Date(); d.setDate(1); for(let i=n-1;i>=0;i--){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); out.push(ymd(x).slice(0,7)); } return out; }
+function waLink(phone, text){ let p=String(phone||'').replace(/\D/g,''); if(p.length===10) p='91'+p; return 'https://wa.me/'+p+'?text='+encodeURIComponent(text); }
+function toast(msg, bad){ const t=document.createElement('div'); t.className='toast'+(bad?' bad':''); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 2600); }
+let loadingCount=0;
+function loading(on){ loadingCount+=on?1:-1; let l=$('#loader'); if(loadingCount>0 && !l){ l=document.createElement('div'); l.id='loader'; l.className='loader'; document.body.appendChild(l);} if(loadingCount<=0 && l){ l.remove(); loadingCount=0; } }
+
+/* ============ API ============ */
+async function api(action, data){
+  if(S.demo) return demoApi(action, data||{});
+  loading(true);
+  try{
+    const res = await fetch(CFG.url, { method:'POST', body: JSON.stringify({ pin:CFG.pin, action, data:data||{} }) });
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.error || 'Error');
+    S.data = j.data;
+    return j.data;
+  } finally { loading(false); }
+}
+async function run(action, data, okMsg){
+  try{ await api(action, data); if(okMsg) toast(okMsg); render(); return true; }
+  catch(e){ toast(e.message || 'Kuch galat hua', true); return false; }
+}
+
+/* ============ DEMO ============ */
+function demoApi(action, d){
+  const D = S.data;
+  const price = n => { const s=D.services.find(x=>x.name===n); return s && s.rate!=null ? s.rate : 0; };
+  const calc = e => { e.rate = e._saved!=null ? e._saved : price(e.work); e.amount = (e.qty===''||e.qty==null?1:+e.qty)*e.rate + (+e.changes||0); return e; };
+  if(action==='addEntry'){ if(!d.client) throw new Error('Client name zaroori hai'); D.entries.push(calc({...d, id:'D'+Date.now(), _saved:price(d.work)})); }
+  if(action==='updateEntry'){ const i=D.entries.findIndex(e=>e.id===d.id); const old=D.entries[i]; const sv = old.work===d.work ? old._saved : price(d.work); D.entries[i]=calc({...old,...d,_saved:sv}); }
+  if(action==='deleteEntry'){ D.entries=D.entries.filter(e=>e.id!==d.id); }
+  if(action==='addService'){ if(D.services.some(s=>s.name.toLowerCase()===String(d.name).trim().toLowerCase())) throw new Error('Ye service pehle se hai'); D.services.push({name:d.name.trim(), rate:+d.price, details:(+d.price)+'/- '+(d.details||'')}); }
+  if(action==='updateService'){ const s=D.services.find(x=>x.name===d.oldName); D.entries.forEach(e=>{ if(e.work===d.oldName){ if(e._saved==null) e._saved=s.rate; e.work=d.name; } }); s.name=d.name; s.rate=+d.price; s.details=d.details; }
+  if(action==='deleteService'){ const s=D.services.find(x=>x.name===d.name); D.entries.forEach(e=>{ if(e.work===d.name && e._saved==null) e._saved=s.rate; }); D.services=D.services.filter(x=>x.name!==d.name); }
+  D.entries.forEach(calc);
+  return Promise.resolve(D);
+}
+function demoData(){
+  const services=[
+    {name:'Design image',rate:200,details:'200 For better output, AI will be used.'},
+    {name:'AI image',rate:150,details:'150'},
+    {name:'Shoot (1 hr)',rate:200,details:'200/-'},
+    {name:'Video (up to 30 sec)',rate:500,details:'Minimum 500 for upto 30 seconds video.'},
+    {name:'Changes only',rate:null,details:'Any changes requested after approval will be charged separately'},
+    {name:'Starter Plan',rate:5000,details:'5000/-'},
+    {name:'Extra video second',rate:15,details:'15/- per second'},
+    {name:'Meta Ads management',rate:2000,details:'2000/- per month'},
+    {name:'Growth Plan',rate:10000,details:'10000/- per month'},
+    {name:'Premium Plan',rate:15000,details:'15000/- per month'}];
+  const clients=[['Brew Cafe','9876543210'],['Diya Seating','9820012345'],['Lords Furniture','9811122233'],['Glow Salon','9900011122'],['Urban Nest Decor','9833344455'],['Chai Point Thane','9819988776']];
+  const works=['AI image','Design image','Video (up to 30 sec)','Shoot (1 hr)','Starter Plan','Growth Plan','Meta Ads management'];
+  const entries=[]; let seed=7; const rnd=()=>{ seed=(seed*9301+49297)%233280; return seed/233280; };
+  const now=new Date();
+  for(let i=0;i<70;i++){
+    const back=Math.floor(rnd()*190); const d=new Date(now); d.setDate(d.getDate()-back);
+    const c=clients[Math.floor(rnd()*clients.length)]; const w=works[Math.floor(rnd()*works.length)];
+    const plan=/Plan|Meta/.test(w); const qty=plan?1:1+Math.floor(rnd()*5);
+    const s=services.find(x=>x.name===w);
+    const changes=rnd()<.15?100*Math.ceil(rnd()*4):'';
+    const paid=back>25?(rnd()<.9):(rnd()<.45);
+    entries.push({id:'D'+i,date:ymd(d),client:c[0],phone:c[1],work:w,qty,changes,rate:s.rate,amount:qty*s.rate+(+changes||0),status:back>10?'Delivered':(rnd()<.5?'In progress':'Pending'),payment:paid?'Paid':'Unpaid',notes:'',_saved:s.rate});
+  }
+  const plans=[
+    ['What you get','Starter','Growth','Premium'],
+    ['Best for','New cafe or salon starting online','Shop or restaurant that wants enquiries','Multi-outlet business or D2C brand'],
+    ['Social posts','12','16','24'],['Reels (up to 30 sec)','3','6','10'],['Shoot hours','-','2','4'],
+    ['Design images (banner, listing, A+)','-','2','4'],['Meta Ads management','No','Yes','Yes'],
+    ['Caption, hashtags, scheduling','Yes','Yes','Yes'],['Revision rounds','1','2','3'],
+    ['Reporting','Monthly summary','Monthly report','Monthly report + review call'],
+    ['Client ad budget (paid to Meta directly)','Not included','₹3,000+ per month','₹6,000+ per month'],
+    ['Price per month (₹)','₹5,000','₹10,000','₹15,000'],['3 months advance, 5% off (₹)','₹14,250','₹28,500','₹42,750']];
+  return {entries,services,plans,sheetUrl:''};
+}
+
+/* ============ NAV ============ */
+const NAV = [
+  {h:'MENU'},
+  {id:'dashboard', t:'Dashboard', i:'dash'},
+  {id:'entries', t:'All Work', i:'list'},
+  {id:'clients', t:'Clients', i:'users'},
+  {h:'MANAGE'},
+  {id:'services', t:'Services & Prices', i:'tag'},
+  {id:'plans', t:'Plans', i:'box'},
+  {h:'OTHERS'},
+  {id:'settings', t:'Settings', i:'gear'},
+  {id:'sheet', t:'Open Google Sheet', i:'sheet'}
+];
+function renderNav(){
+  $('#sideNav').innerHTML = NAV.map(n => n.h ? `<div class="nav-h">${n.h}</div>` :
+    `<a class="${S.view===n.id?'on':''}" onclick="go('${n.id}')">${I[n.i]}${n.t}</a>`).join('');
+  const tabs=[['dashboard','Home','dash'],['entries','Work','list'],['clients','Clients','users'],['services','Services','tag'],['settings','More','more']];
+  $('#tabbar').innerHTML = tabs.map(([id,t,i]) => `<a class="${S.view===id||(id==='settings'&&S.view==='plans')?'on':''}" onclick="go('${id}')">${I[i]}${t}</a>`).join('');
+  $('#sideFoot').textContent = S.demo ? 'Demo mode' : 'Synced with Google Sheet';
+}
+function go(v){
+  if(v==='sheet'){ if(S.data.sheetUrl) window.open(S.data.sheetUrl,'_blank'); else toast('Demo mein sheet link nahi hai'); return; }
+  S.view=v; render(); window.scrollTo(0,0);
+}
+
+/* ============ RENDER ============ */
+function render(){
+  S.charts.forEach(c=>c.destroy()); S.charts=[];
+  renderNav();
+  const v = {dashboard:vDash, entries:vEntries, clients:vClients, services:vServices, plans:vPlans, settings:vSettings}[S.view] || vDash;
+  $('#view').innerHTML = v();
+  if(S.view==='dashboard') drawDashCharts();
+  if(S.view==='entries') drawTable();
+}
+function header(title, sub, actions){
+  return `<div class="top"><div><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div><div class="actions">${actions||''}</div></div>`;
+}
+const refreshBtn = `<button class="btn hide-m" onclick="refresh()">${I.refresh}Refresh</button>`;
+const addBtn = `<button class="btn red" onclick="openEntry()">${I.plus}Add Entry</button>`;
+async function refresh(){ if(await run('getAll')) toast('Updated'); }
+
+/* ---------- metrics ---------- */
+function metrics(){
+  const E=S.data.entries, keys=monthKeys(12), cur=keys[11], prev=keys[10];
+  const by = {}; keys.forEach(k=>by[k]={total:0,paid:0});
+  let paidAll=0, unpaidAll=0, workPending=0;
+  const svc={}, cli={};
+  E.forEach(e=>{
+    const k=mKey(e.date), a=+e.amount||0;
+    if(by[k]){ by[k].total+=a; if(e.payment==='Paid') by[k].paid+=a; }
+    if(e.payment==='Paid') paidAll+=a; else unpaidAll+=a;
+    if(e.status!=='Delivered') workPending++;
+    svc[e.work]=(svc[e.work]||0)+a;
+    if(!cli[e.client]) cli[e.client]={name:e.client,phone:e.phone,total:0,paid:0,due:0,jobs:0,last:''};
+    const c=cli[e.client]; c.total+=a; c.jobs++; if(e.payment==='Paid') c.paid+=a; else c.due+=a;
+    if(e.phone) c.phone=e.phone; if(e.date>c.last) c.last=e.date;
+  });
+  return {keys,cur,prev,by,paidAll,unpaidAll,workPending,svc,cli:Object.values(cli)};
+}
+function deltaHtml(now, before, label){
+  if(!before) return `<span class="delta">${now?'First month with earnings':'No earnings yet'}${label?' · '+label:''}</span>`;
+  const p=((now-before)/before)*100, up=p>=0;
+  return `<span class="delta"><b class="${up?'up':'down'}">${up?'↑':'↓'} ${Math.abs(p).toFixed(1)}%</b> vs ${label}</span>`;
+}
+
+/* ---------- dashboard ---------- */
+function vDash(){
+  const M=metrics(), cur=M.by[M.cur], prev=M.by[M.prev];
+  const svcList=Object.entries(M.svc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const svcTotal=svcList.reduce((s,[,v])=>s+v,0);
+  const top=svcList.slice(0,5); const other=svcList.slice(5).reduce((s,[,v])=>s+v,0); if(other) top.push(['Other',other]);
+  const topCli=[...M.cli].sort((a,b)=>b.total-a.total).slice(0,5);
+  const dues=M.cli.filter(c=>c.due>0).sort((a,b)=>b.due-a.due).slice(0,5);
+  const recent=[...S.data.entries].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+  const hello = (()=>{ const h=new Date().getHours(); return h<12?'Good morning':h<17?'Good afternoon':'Good evening'; })();
+
+  return header('Dashboard', `${hello}, Shivam · ${mLabel(M.cur)}`, refreshBtn+addBtn) + `
+  <div class="panel">
+    <div class="grid-top">
+      <div class="cell">
+        <div class="cell-h"><div><h3>Earned this month</h3><div class="note">Payment received, by work date</div></div>
+          <button class="btn sm" onclick="go('entries')">View all</button></div>
+        <div class="big">${inr(cur.paid)}</div>
+        ${deltaHtml(cur.paid, prev.paid, 'last month')}
+        <div class="note" style="margin-top:22px;font-size:12px;color:var(--muted)">Last 12 months</div>
+        <div class="chart-box"><canvas id="cMonths" aria-label="Monthly total work and paid, last 12 months"></canvas></div>
+        <div class="legend"><span><i style="background:#8C8A85"></i>Total work</span><span><i style="background:var(--red)"></i>Paid</span></div>
+      </div>
+      <div class="cell">
+        <div class="cell-h"><div><h3>Earnings by service</h3><div class="note">All time · ${inr(svcTotal)}</div></div>
+          <button class="btn sm" onclick="go('services')">Services</button></div>
+        <div class="blist">${top.length? top.map(([n,v])=>`
+          <div class="brow"><div class="t"><span>${esc(n)}</span><b>${inr(v)}<small>${(v/svcTotal*100).toFixed(0)}%</small></b></div>
+          <div class="track"><div class="fill" style="width:${Math.max(2,v/top[0][1]*100)}%"></div></div></div>`).join('') : '<div class="empty">Abhi koi entry nahi</div>'}
+        </div>
+      </div>
+    </div>
+    <div class="grid-bot">
+      <div class="cell">
+        <div class="cell-h"><div><h3>Payment pending</h3><div class="note">${dues.length} client${dues.length===1?'':'s'} · ${inr(M.unpaidAll)}</div></div></div>
+        <div class="list">${dues.length? dues.map(c=>`
+          <div class="li"><div class="av red">${esc(initials(c.name))}</div>
+            <div class="n"><div>${esc(c.name)}</div><small>${c.jobs} job${c.jobs===1?'':'s'}</small></div>
+            <div class="amt" style="color:var(--red)">${inr(c.due)}</div>
+            ${c.phone?`<a class="icon-btn" title="WhatsApp reminder" target="_blank" href="${waLink(c.phone, remindText(c.name,c.due))}">${I.wa}</a>`:''}
+          </div>`).join('') : '<div class="empty">Sab payment clear hai</div>'}</div>
+      </div>
+      <div class="cell">
+        <div class="cell-h"><div><h3>Top clients</h3><div class="note">By total work, all time</div></div>
+          <button class="btn sm" onclick="go('clients')">View</button></div>
+        <div class="list">${topCli.length? topCli.map(c=>`
+          <div class="li" style="cursor:pointer" onclick="openClient('${esc(c.name).replace(/'/g,"\\'")}')"><div class="av">${esc(initials(c.name))}</div>
+            <div class="n"><div>${esc(c.name)}</div><small>${c.jobs} job${c.jobs===1?'':'s'}</small></div>
+            <div class="amt">${inr(c.total)}</div></div>`).join('') : '<div class="empty">Abhi koi client nahi</div>'}</div>
+      </div>
+      <div class="cell">
+        <div class="cell-h"><div><h3>Work this month</h3><div class="note">Running total, day by day</div></div></div>
+        <div class="big" style="font-size:22px">${inr(cur.total)}</div>
+        ${deltaHtml(cur.total, prev.total, 'last month')}
+        <div class="chart-box" style="height:170px"><canvas id="cDaily" aria-label="Running total of work value this month vs last month"></canvas></div>
+        <div class="legend"><span><i style="background:var(--red)"></i>This month</span><span><i style="background:#8C8A85"></i>Last month</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="l">Total earned</div><div class="v red">${inr(M.paidAll)}</div><div class="s">All time, paid</div></div>
+    <div class="stat"><div class="l">Payment pending</div><div class="v">${inr(M.unpaidAll)}</div><div class="s">Unpaid work</div></div>
+    <div class="stat"><div class="l">Work pending</div><div class="v">${M.workPending}</div><div class="s">Not delivered yet</div></div>
+    <div class="stat"><div class="l">Clients</div><div class="v">${M.cli.length}</div><div class="s">${S.data.services.length} services</div></div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <div class="cell-h"><h3>Recent work</h3><button class="btn sm" onclick="go('entries')">All work</button></div>
+    ${recent.length? `<div style="overflow-x:auto;margin-top:8px"><table>${tHead(false)}<tbody>${recent.map(e=>tRow(e,false)).join('')}</tbody></table></div>` : '<div class="empty">Pehli entry add karo</div>'}
+  </div>`;
+}
+function remindText(name, due){ return `Hi ${name}, Vertex Media se message hai. Aapka ${inr(due)} ka payment pending hai. Jab time mile tab clear kar dena. Thank you!`; }
+
+function drawDashCharts(){
+  if(!window.Chart) return;
+  const M=metrics();
+  Chart.defaults.font.family='Montserrat'; Chart.defaults.font.size=11; Chart.defaults.color='#8C8A85';
+  const tip={backgroundColor:'#141414',padding:10,cornerRadius:8,titleFont:{weight:'600'},callbacks:{label:c=>` ${c.dataset.label}: ${inr(c.parsed.y)}`}};
+  const grid={color:'#EEEBE6',drawTicks:false};
+  const yAx={beginAtZero:true,border:{display:false},grid,ticks:{padding:8,maxTicksLimit:5,callback:v=>v>=1000?'₹'+(v/1000)+'k':'₹'+v}};
+  const c1=$('#cMonths');
+  if(c1) S.charts.push(new Chart(c1,{type:'bar',data:{labels:M.keys.map(k=>MONTHS[+k.slice(5)-1]),datasets:[
+      {label:'Total work',data:M.keys.map(k=>M.by[k].total),backgroundColor:'#8C8A85',borderRadius:4,borderSkipped:'bottom',barPercentage:.7,categoryPercentage:.55},
+      {label:'Paid',data:M.keys.map(k=>M.by[k].paid),backgroundColor:'#E01F26',borderRadius:4,borderSkipped:'bottom',barPercentage:.7,categoryPercentage:.55}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{...tip,callbacks:{...tip.callbacks,title:i=>mLabel(M.keys[i[0].dataIndex])}}},
+      scales:{x:{grid:{display:false},border:{color:'#E4E1DB'}},y:yAx}}}));
+  const c2=$('#cDaily');
+  if(c2){
+    const now=new Date(), dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+    const cum=(key,upto)=>{ const arr=new Array(dim).fill(0); S.data.entries.forEach(e=>{ if(mKey(e.date)===key){ const d=pDate(e.date).getDate(); if(d<=dim) arr[d-1]+=+e.amount||0; } }); let s=0; return arr.map((v,i)=>{ s+=v; return i<upto?s:null; }); };
+    const lastDim=new Date(now.getFullYear(),now.getMonth(),0).getDate();
+    S.charts.push(new Chart(c2,{type:'line',data:{labels:Array.from({length:dim},(_,i)=>i+1),datasets:[
+        {label:'Last month',data:cum(M.prev,Math.min(dim,lastDim)),borderColor:'#8C8A85',borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:.25},
+        {label:'This month',data:cum(M.cur,now.getDate()),borderColor:'#E01F26',borderWidth:2,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#E01F26',tension:.25}]},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{...tip,callbacks:{...tip.callbacks,title:i=>'Day '+i[0].label}}},
+        scales:{x:{grid:{display:false},border:{color:'#E4E1DB'},ticks:{maxTicksLimit:6}},y:yAx}}}));
+  }
+}
+
+/* ---------- entries ---------- */
+function pillStatus(e,click){ const c=e.status==='Delivered'?'p-done':e.status==='In progress'?'p-prog':'p-pend'; return `<button class="pill ${c}" ${click?`title="Change status" onclick="cycleStatus('${e.id}')"`:'tabindex="-1" style="cursor:default"'}>${esc(e.status)}</button>`; }
+function pillPay(e,click){ const c=e.payment==='Paid'?'p-paid':'p-unpaid'; return `<button class="pill ${c}" ${click?`title="Mark ${e.payment==='Paid'?'unpaid':'paid'}" onclick="togglePaid('${e.id}')"`:'tabindex="-1" style="cursor:default"'}>${esc(e.payment)}</button>`; }
+function tHead(full){ return `<thead><tr><th>Date</th><th>Client</th><th>Work</th>${full?'<th class="num">Qty</th><th class="num">Rate</th><th class="num">Changes</th>':''}<th class="num">Amount</th><th>Status</th><th>Payment</th>${full?'<th>Notes</th><th></th>':''}</tr></thead>`; }
+function tRow(e,full){
+  return `<tr><td>${dLabel(e.date)}</td><td><b style="font-weight:600">${esc(e.client)}</b></td><td>${esc(e.work)}</td>
+  ${full?`<td class="num">${e.qty===''?1:e.qty}</td><td class="num">${inr(e.rate)}</td><td class="num">${e.changes?inr(e.changes):'<span class="muted">-</span>'}</td>`:''}
+  <td class="num"><b style="font-weight:600">${inr(e.amount)}</b></td><td>${pillStatus(e,full)}</td><td>${pillPay(e,full)}</td>
+  ${full?`<td class="wrap">${esc(e.notes)}</td><td><button class="icon-btn" title="Edit" onclick="openEntry('${e.id}')">${I.edit}</button><button class="icon-btn" title="Delete" onclick="delEntry('${e.id}')">${I.trash}</button></td>`:''}</tr>`;
+}
+function filtered(){
+  const f=S.filters, q=f.q.toLowerCase();
+  return [...S.data.entries].filter(e=>(!q || (e.client+' '+e.work+' '+e.notes).toLowerCase().includes(q)) && (!f.month || mKey(e.date)===f.month) && (!f.payment || e.payment===f.payment) && (!f.status || e.status===f.status))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+}
+function vEntries(){
+  const months=[...new Set(S.data.entries.map(e=>mKey(e.date)))].sort().reverse();
+  const f=S.filters;
+  return header('All Work', 'Har entry Google Sheet ke Master tab mein save hoti hai', refreshBtn+addBtn) + `
+  <div class="toolbar">
+    <input class="inp search" placeholder="Search client, work, notes" value="${esc(f.q)}" oninput="S.filters.q=this.value;drawTable()">
+    <select class="sel" onchange="S.filters.month=this.value;drawTable()"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${f.month===m?'selected':''}>${mLabel(m)}</option>`).join('')}</select>
+    <select class="sel" onchange="S.filters.payment=this.value;drawTable()"><option value="">Any payment</option><option ${f.payment==='Paid'?'selected':''}>Paid</option><option ${f.payment==='Unpaid'?'selected':''}>Unpaid</option></select>
+    <select class="sel" onchange="S.filters.status=this.value;drawTable()"><option value="">Any status</option>${['Pending','In progress','Delivered'].map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join('')}</select>
+  </div>
+  <div id="tbl"></div>`;
+}
+function drawTable(){
+  const rows=filtered(); const el=$('#tbl'); if(!el) return;
+  const tot=rows.reduce((s,e)=>s+(+e.amount||0),0), paid=rows.filter(e=>e.payment==='Paid').reduce((s,e)=>s+(+e.amount||0),0);
+  el.innerHTML = rows.length ? `<div class="tbl-wrap"><table>${tHead(true)}<tbody>${rows.map(e=>tRow(e,true)).join('')}</tbody>
+    <tfoot><tr><td colspan="6">${rows.length} entr${rows.length===1?'y':'ies'}</td><td class="num">${inr(tot)}</td><td colspan="4">Paid ${inr(paid)} · <span style="color:var(--red)">Pending ${inr(tot-paid)}</span></td></tr></tfoot></table></div>`
+    : `<div class="card empty">Koi entry nahi mili. <a style="cursor:pointer;font-weight:600;color:var(--ink)" onclick="openEntry()">Add entry</a></div>`;
+}
+async function togglePaid(id){ const e=S.data.entries.find(x=>x.id===id); await run('updateEntry',{...e,payment:e.payment==='Paid'?'Unpaid':'Paid'}, 'Payment updated'); }
+async function cycleStatus(id){ const e=S.data.entries.find(x=>x.id===id); const o=['Pending','In progress','Delivered']; await run('updateEntry',{...e,status:o[(o.indexOf(e.status)+1)%3]}, 'Status updated'); }
+async function delEntry(id){ const e=S.data.entries.find(x=>x.id===id); if(await confirmBox('Delete entry?', `${e.client} · ${e.work} · ${inr(e.amount)}. Sheet se bhi hat jayegi.`)) run('deleteEntry',{id}, 'Entry deleted'); }
+
+/* entry form */
+function openEntry(id, preset){
+  const e = id ? S.data.entries.find(x=>x.id===id) : {date:today(),client:'',phone:'',work:'',qty:1,changes:'',status:'Pending',payment:'Unpaid',notes:'',...(preset||{})};
+  const clients=[...new Set(S.data.entries.map(x=>x.client))].sort();
+  const svcs=S.data.services;
+  const workOpts = svcs.map(s=>`<option value="${esc(s.name)}" ${e.work===s.name?'selected':''}>${esc(s.name)}${s.rate!=null?' · '+inr(s.rate):' · custom'}</option>`).join('') + (e.work && !svcs.some(s=>s.name===e.work)?`<option selected value="${esc(e.work)}">${esc(e.work)} (removed)</option>`:'');
+  modal(`<div class="drawer" role="dialog" aria-label="${id?'Edit':'Add'} entry">
+    <div class="dr-h"><h2>${id?'Edit entry':'Add work entry'}</h2><button class="icon-btn" onclick="closeModal()">${I.x}</button></div>
+    <div class="dr-b">
+      <div class="f2"><div class="fld"><label>Date</label><input class="inp" type="date" id="fDate" value="${esc(e.date)}"></div>
+        <div class="fld"><label>Phone</label><input class="inp" id="fPhone" inputmode="tel" value="${esc(e.phone)}" placeholder="10 digit"></div></div>
+      <div class="fld"><label>Client name</label><input class="inp" id="fClient" list="cliList" value="${esc(e.client)}" placeholder="Type or pick a client" autocomplete="off">
+        <datalist id="cliList">${clients.map(c=>`<option value="${esc(c)}">`).join('')}</datalist><div class="hint">Naya naam likhoge to naya client ban jayega</div></div>
+      <div class="fld"><label>Work type</label><select class="sel" id="fWork"><option value="">Select service</option>${workOpts}</select>
+        <div class="hint">Naya service chahiye? <a style="cursor:pointer;font-weight:600" onclick="closeModal();openService()">Add service</a></div></div>
+      <div class="f2"><div class="fld"><label>Qty</label><div class="stepper"><button type="button" onclick="step(-1)">−</button><input id="fQty" inputmode="numeric" value="${e.qty===''?1:esc(e.qty)}"><button type="button" onclick="step(1)">+</button></div></div>
+        <div class="fld"><label>Changes (₹)</label><input class="inp" id="fChanges" inputmode="numeric" value="${esc(e.changes)}" placeholder="0"><div class="hint">Amount mein plus hoga</div></div></div>
+      <div class="fld"><label>Work status</label><div class="seg" id="fStatus">${['Pending','In progress','Delivered'].map(s=>`<button type="button" class="${e.status===s?'on':''}" data-v="${s}">${s}</button>`).join('')}</div></div>
+      <div class="fld"><label>Payment</label><div class="seg" id="fPay">${['Unpaid','Paid'].map(s=>`<button type="button" class="${e.payment===s?'on':''}" data-v="${s}">${s}</button>`).join('')}</div></div>
+      <div class="fld"><label>Notes</label><textarea id="fNotes" placeholder="Optional">${esc(e.notes)}</textarea></div>
+    </div>
+    <div class="dr-f"><div class="sum"><span id="fCalc"></span><b id="fTotal"></b></div>
+      <button class="btn primary full" id="fSave">${id?'Save changes':'Save entry'}</button></div>
+  </div>`);
+  const recalc=()=>{
+    const w=$('#fWork').value, s=svcs.find(x=>x.name===w);
+    let rate = s && s.rate!=null ? s.rate : 0;
+    if(id && w===e.work) rate=e.rate;   // purana rate lock
+    const q=Number($('#fQty').value)||1, ch=Number($('#fChanges').value)||0;
+    $('#fCalc').textContent = `${inr(rate)} × ${q}${ch?' + '+inr(ch):''}`; $('#fTotal').textContent = inr(rate*q+ch);
+  };
+  ['#fWork','#fQty','#fChanges'].forEach(s=>$(s).addEventListener('input',recalc));
+  $('#fClient').addEventListener('change',()=>{ const x=S.data.entries.find(z=>z.client===$('#fClient').value && z.phone); if(x && !$('#fPhone').value) $('#fPhone').value=x.phone; });
+  document.querySelectorAll('.seg').forEach(g=>g.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return; g.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }));
+  recalc();
+  $('#fSave').onclick = async ()=>{
+    const d={ id:e.id, date:$('#fDate').value||today(), client:$('#fClient').value.trim(), phone:$('#fPhone').value.trim(), work:$('#fWork').value,
+      qty:$('#fQty').value, changes:$('#fChanges').value, status:$('#fStatus .on').dataset.v, payment:$('#fPay .on').dataset.v, notes:$('#fNotes').value.trim() };
+    if(!d.client) return toast('Client name likho', true);
+    if(!d.work) return toast('Work type chuno', true);
+    $('#fSave').disabled=true; $('#fSave').textContent='Saving...';
+    if(await run(id?'updateEntry':'addEntry', d, id?'Entry updated':'Entry saved')) closeModal();
+    else { $('#fSave').disabled=false; $('#fSave').textContent='Try again'; }
+  };
+}
+function step(n){ const i=$('#fQty'); i.value=Math.max(1,(Number(i.value)||1)+n); i.dispatchEvent(new Event('input')); }
+
+/* ---------- clients ---------- */
+function vClients(){
+  const list=metrics().cli.sort((a,b)=>b.last.localeCompare(a.last));
+  return header('Clients', `${list.length} clients · Master sheet se apne aap banti hai list`, addBtn) +
+  (list.length? `<div class="cgrid">${list.map(c=>`
+    <div class="ccard" onclick="openClient('${esc(c.name).replace(/'/g,"\\'")}')">
+      <div class="hd"><div class="av">${esc(initials(c.name))}</div><div><b>${esc(c.name)}</b><small>${esc(c.phone||'No phone')} · last ${dLabel(c.last)}</small></div></div>
+      <div class="row3"><div><span>Total</span><b>${inr(c.total)}</b></div><div><span>Paid</span><b>${inr(c.paid)}</b></div><div><span>Due</span><b style="color:${c.due?'var(--red)':'inherit'}">${inr(c.due)}</b></div></div>
+    </div>`).join('')}</div>` : `<div class="card empty">Pehli entry add karte hi client yahan dikhega.</div>`);
+}
+function openClient(name){
+  const c=metrics().cli.find(x=>x.name===name); if(!c) return;
+  const es=S.data.entries.filter(e=>e.client===name).sort((a,b)=>b.date.localeCompare(a.date));
+  modal(`<div class="drawer"><div class="dr-h"><h2>${esc(name)}</h2><button class="icon-btn" onclick="closeModal()">${I.x}</button></div>
+    <div class="dr-b">
+      <div class="muted" style="font-size:12px">${esc(c.phone||'No phone')} · ${c.jobs} jobs</div>
+      <div class="stats" style="margin:0;grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><div class="l">Total</div><div class="v" style="font-size:17px">${inr(c.total)}</div></div>
+        <div class="stat"><div class="l">Paid</div><div class="v" style="font-size:17px">${inr(c.paid)}</div></div>
+        <div class="stat"><div class="l">Due</div><div class="v red" style="font-size:17px">${inr(c.due)}</div></div></div>
+      <div class="list" style="margin:0">${es.map(e=>`<div class="li"><div class="n"><div>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</div><small>${dLabel(e.date)} · ${esc(e.status)}</small></div><div class="amt">${inr(e.amount)}</div>${pillPay(e,true)}<button class="icon-btn" onclick="closeModal();openEntry('${e.id}')">${I.edit}</button></div>`).join('')}</div>
+    </div>
+    <div class="dr-f" style="display:flex;gap:10px">
+      ${c.due>0&&c.phone?`<a class="btn" style="flex:1;justify-content:center;text-decoration:none" target="_blank" href="${waLink(c.phone,remindText(c.name,c.due))}">${I.wa}Payment reminder</a>`:''}
+      <button class="btn red" style="flex:1;justify-content:center" onclick='closeModal();openEntry(null,${JSON.stringify({client:c.name,phone:c.phone||''}).replace(/'/g,"&#39;")})'>${I.plus}Add work</button>
+    </div></div>`);
+}
+
+/* ---------- services ---------- */
+function vServices(){
+  const use={}; S.data.entries.forEach(e=>{ use[e.work]=(use[e.work]||0)+1; });
+  return header('Services & Prices', 'Yahan jo add/edit karoge wo sheet ki Price List mein jayega aur calculation mein use hoga', `<button class="btn red" onclick="openService()">${I.plus}Add Service</button>`) + `
+  <div class="tbl-wrap"><table><thead><tr><th>Service</th><th class="num">Price</th><th>Details</th><th class="num">Used</th><th></th></tr></thead><tbody>
+  ${S.data.services.map(s=>`<tr><td><b style="font-weight:600">${esc(s.name)}</b></td><td class="num"><b style="font-weight:600;color:var(--red)">${s.rate!=null?inr(s.rate):'Custom'}</b></td>
+    <td class="wrap">${esc(s.details)}</td><td class="num">${use[s.name]||0}</td>
+    <td><button class="icon-btn" title="Edit" onclick="openService('${esc(s.name).replace(/'/g,"\\'")}')">${I.edit}</button><button class="icon-btn" title="Delete" onclick="delService('${esc(s.name).replace(/'/g,"\\'")}')">${I.trash}</button></td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="muted" style="font-size:12px;margin-top:14px">Price badalne se purani entries ka amount nahi badlega. Naya price sirf nayi entries pe lagega.</p>`;
+}
+function openService(name){
+  const s = name ? S.data.services.find(x=>x.name===name) : {name:'',rate:'',details:''};
+  modal(`<div class="dialog" role="dialog"><div class="cell-h" style="margin-bottom:18px"><h3 style="font-size:17px">${name?'Edit service':'Add new service'}</h3><button class="icon-btn" onclick="closeModal()">${I.x}</button></div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="fld"><label>Service name</label><input class="inp" id="sName" value="${esc(s.name)}" placeholder="e.g. Logo design"></div>
+      <div class="fld"><label>Price (₹)</label><input class="inp" id="sPrice" inputmode="numeric" value="${s.rate==null?'':esc(s.rate)}" placeholder="e.g. 1500"></div>
+      <div class="fld"><label>Details</label><input class="inp" id="sDet" value="${esc(name?s.details:'')}" placeholder="e.g. per logo, 2 revisions"><div class="hint">Optional. Price List ke "Pricing" column mein dikhega.</div></div>
+      <button class="btn primary full" id="sSave">${name?'Save changes':'Add service'}</button>
+    </div></div>`, true);
+  $('#sSave').onclick=async ()=>{
+    const d={oldName:name, name:$('#sName').value.trim(), price:$('#sPrice').value, details:$('#sDet').value};
+    if(!d.name) return toast('Service name likho', true);
+    if(d.price==='' || isNaN(Number(d.price))) return toast('Price number mein likho', true);
+    $('#sSave').disabled=true;
+    if(await run(name?'updateService':'addService', d, name?'Service updated':'Service added')) closeModal(); else $('#sSave').disabled=false;
+  };
+}
+async function delService(name){
+  const plan=/Plan$/.test(name) ? ' Ye Plans tab ka price hai, delete karne se wahan price khali ho jayega.' : '';
+  if(await confirmBox('Delete service?', `"${name}" Price List se hat jayega. Purani entries ka amount same rahega.${plan}`)) run('deleteService',{name}, 'Service deleted');
+}
+
+/* ---------- plans ---------- */
+function vPlans(){
+  const P=S.data.plans||[]; if(P.length<2) return header('Plans','')+'<div class="card empty">Plans tab nahi mila</div>';
+  const names=P[0].slice(1), find=l=>P.find(r=>r[0].toLowerCase().startsWith(l));
+  const price=find('price per month'), adv=find('3 months'), best=find('best for');
+  const rows=P.filter(r=>r!==P[0]&&r!==price&&r!==adv&&r!==best);
+  return header('Plans', 'Price badalne ke liye Services & Prices mein "Starter/Growth/Premium Plan" edit karo', `<button class="btn" onclick="go('services')">${I.tag}Edit prices</button>`) + `
+  <div class="pgrid">${names.map((n,i)=>`<div class="plan ${i===1?'hot':''}">
+    <div class="nm">${esc(n)}${i===1?' · <span style="color:var(--red)">Popular</span>':''}</div>
+    <div class="pr">${esc(price?price[i+1]:'')}<small> /month</small></div>
+    <div class="bf">${esc(best?best[i+1]:'')}</div>
+    <ul>${rows.map(r=>`<li><span>${esc(r[0])}</span><b>${esc(r[i+1])}</b></li>`).join('')}</ul>
+    ${adv?`<div class="adv">3 months advance: <b style="color:var(--ink)">${esc(adv[i+1])}</b> (5% off)</div>`:''}
+  </div>`).join('')}</div>`;
+}
+
+/* ---------- settings ---------- */
+function vSettings(){
+  return header('Settings','') + `<div class="set-card">
+    <div class="card"><h3>Connection</h3><p class="muted" style="font-size:12px">${S.demo?'Demo mode chal raha hai.':'Google Sheet se connected.'}</p>
+      <div class="fld" style="margin-top:12px"><label>Apps Script URL</label><input class="inp" id="setUrl" value="${esc(CFG.url)}" style="width:100%"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="saveUrl()">Save URL</button>${S.data.sheetUrl?`<a class="btn" target="_blank" href="${esc(S.data.sheetUrl)}">${I.sheet}Open sheet</a>`:''}</div></div>
+    <div class="card"><h3>More</h3><div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn" onclick="go('plans')">${I.box}Plans</button><button class="btn" onclick="refresh()">${I.refresh}Refresh data</button><button class="btn red" onclick="logout()">Log out</button></div></div>
+  </div>`;
+}
+function saveUrl(){ CFG.url=$('#setUrl').value.trim(); saveCfg(!!(store()&&store().getItem('vx_pin'))); toast('URL saved'); }
+
+/* ============ MODAL ============ */
+function modal(html, center){ $('#modalRoot').innerHTML=`<div class="ov ${center?'center':''}" onclick="if(event.target===this)closeModal()">${html}</div>`; document.body.style.overflow='hidden'; }
+function closeModal(){ $('#modalRoot').innerHTML=''; document.body.style.overflow=''; }
+function confirmBox(title, text){
+  return new Promise(res=>{
+    modal(`<div class="dialog"><h3 style="margin:0 0 8px;font-size:17px">${esc(title)}</h3><p class="muted" style="font-size:13px;margin:0 0 20px">${esc(text)}</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn" id="cNo">Cancel</button><button class="btn red" id="cYes">Delete</button></div></div>`, true);
+    $('#cNo').onclick=()=>{closeModal();res(false)}; $('#cYes').onclick=()=>{closeModal();res(true)};
+  });
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+/* ============ BOOT ============ */
+function showApp(){ $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); $('#tabbar').classList.remove('hidden'); $('#fab').classList.remove('hidden'); $('#demoBanner').classList.toggle('hidden',!S.demo); render(); }
+function showLogin(msg){
+  $('#app').classList.add('hidden'); $('#tabbar').classList.add('hidden'); $('#fab').classList.add('hidden'); $('#login').classList.remove('hidden');
+  $('#urlFld').classList.toggle('hidden', !!CFG.url); $('#lUrl').value=CFG.url; $('#lErr').textContent=msg||''; setTimeout(()=>$('#lPin').focus(),50);
+}
+async function login(){
+  const url=(CFG.url || $('#lUrl').value).trim(), pin=$('#lPin').value.trim();
+  if(!url) return $('#lErr').textContent='Apps Script URL paste karo';
+  if(!pin) return $('#lErr').textContent='PIN daalo';
+  CFG.url=url; CFG.pin=pin; S.demo=false; $('#lBtn').disabled=true; $('#lBtn').textContent='Checking...';
+  try{ await api('getAll'); saveCfg($('#lRem').checked); showApp(); }
+  catch(e){ $('#lErr').textContent = e.message==='Wrong PIN' ? 'PIN galat hai' : 'Connect nahi hua: '+e.message; if(!DEFAULT_API_URL) $('#urlFld').classList.remove('hidden'); }
+  finally{ $('#lBtn').disabled=false; $('#lBtn').textContent='Unlock'; }
+}
+function logout(){ const ls=store(), ss=sstore(); try{ ls&&ls.removeItem('vx_pin'); ss&&ss.removeItem('vx_pin'); }catch(e){} CFG.pin=''; S.demo=false; S.data={entries:[],services:[],plans:[],sheetUrl:''}; closeModal(); showLogin(); $('#lPin').value=''; }
+$('#lBtn').onclick=login;
+$('#lPin').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
+$('#demoBtn').onclick=()=>{ S.demo=true; S.data=demoData(); showApp(); };
+
+(async function boot(){
+  loadCfg();
+  if(new URLSearchParams(location.search).has('demo')){ S.demo=true; S.data=demoData(); return showApp(); }
+  if(CFG.url && CFG.pin){ try{ await api('getAll'); return showApp(); }catch(e){ return showLogin(e.message==='Wrong PIN'?'PIN galat hai':''); } }
+  showLogin();
+})();
+</script>
+</body>
+</html>
