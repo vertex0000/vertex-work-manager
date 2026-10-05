@@ -16,6 +16,11 @@
  *             save hota hai (asli PIN kahin nahi dikhta). Har member ka PIN alag.
  *
  * Files & links: Master (col P) aur Clients (col F) mein, ek line = "Label | https://..."
+ *   "[client] " se shuru hone wali line client portal pe bhi dikhti hai.
+ *
+ * Client portal: har client ka alag link (Clients col G) + PIN (col H, hash).
+ *   Client sirf apna kaam, client-visible files aur (on ho to) amount dekhta hai.
+ *   Approve / Changes feedback Master col Q mein aata hai.
  */
 
 const MASTER = 'Master';
@@ -32,12 +37,14 @@ const CELL_LIMIT = 49000; // Google Sheet cell mein max ~50,000 characters
 const C = {
   date: 1, client: 2, phone: 3, work: 4, qty: 5, changes: 6,
   rate: 7, amount: 8, status: 9, payment: 10, notes: 11,
-  month: 12, id: 13, saved: 14, by: 15, links: 16
+  month: 12, id: 13, saved: 14, by: 15, links: 16, feedback: 17
 };
 
 // Kaun kya kar sakta hai
 const OWNER_ONLY = ['saveMember', 'deleteMember', 'saveSettings'];
 const MEMBER_OK = ['getAll', 'addEntry', 'updateEntry', 'deleteEntry', 'saveClient'];
+// Clients tab portal columns
+const CP = { token: 7, pin: 8, on: 9, amounts: 10 };
 
 function doGet() {
   return json({ ok: true, msg: 'Vertex API is running' });
@@ -50,6 +57,8 @@ function doPost(e) {
   } catch (err) {
     return json({ ok: false, error: 'Bad request' });
   }
+
+  if (req.portal) return portalRequest(req);
 
   let me;
   try { me = auth(req.pin); } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
@@ -76,6 +85,7 @@ function doPost(e) {
       case 'deleteClient': deleteClient(d.name); break;
       case 'saveSettings': saveSettings(d); break;
       case 'savePlans': savePlans(d.rows); break;
+      case 'setPortal': setPortal(d); break;
       default: return json({ ok: false, error: 'Unknown action' });
     }
     SpreadsheetApp.flush();
@@ -142,7 +152,7 @@ function ensureTab(name, headers) {
   headers.forEach((h, i) => { if (!head[i]) s.getRange(1, i + 1).setValue(h); });
   return s;
 }
-function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes', 'Discount %', 'Files & links']); }
+function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes', 'Discount %', 'Files & links', 'Portal link code', 'Portal PIN (locked)', 'Portal on', 'Show amounts']); }
 function cpTab() { return ensureTab(CLIENT_PRICES, ['Client name', 'Service', 'Special price (₹)']); }
 function settingsTab() { return ensureTab(SETTINGS, ['Setting', 'Value']); }
 
@@ -310,25 +320,32 @@ function lockRates(workName, rate) {
 
 function masterTab() {
   const m = tab(MASTER);
-  if (m.getMaxColumns() < C.links) m.insertColumnsAfter(m.getMaxColumns(), C.links - m.getMaxColumns());
+  if (m.getMaxColumns() < C.feedback) m.insertColumnsAfter(m.getMaxColumns(), C.feedback - m.getMaxColumns());
   if (!m.getRange(1, C.by).getValue()) m.getRange(1, C.by).setValue('Added by');
   if (!m.getRange(1, C.links).getValue()) m.getRange(1, C.links).setValue('Files & links');
+  if (!m.getRange(1, C.feedback).getValue()) m.getRange(1, C.feedback).setValue('Client feedback');
   return m;
 }
 
 /* ---------- files & links ---------- */
 
 // Website se list aati hai [{label,url}], sheet mein "Label | https://..." har line pe
-function cleanLinks(v) {
-  const arr = Array.isArray(v) ? v : String(v || '').split('\n').map(l => {
+function parseLinkLines(v) {
+  return String(v || '').split('\n').map(l => {
+    let client = false;
+    l = l.trim();
+    if (/^\[client\]\s*/i.test(l)) { client = true; l = l.replace(/^\[client\]\s*/i, ''); }
     const i = l.lastIndexOf(' | ');
-    return i >= 0 ? { label: l.slice(0, i), url: l.slice(i + 3) } : { label: '', url: l };
+    return i >= 0 ? { label: l.slice(0, i), url: l.slice(i + 3), client } : { label: '', url: l, client };
   });
+}
+function cleanLinks(v) {
+  const arr = Array.isArray(v) ? v : parseLinkLines(v);
   return arr
-    .map(x => ({ label: String((x && x.label) || '').replace(/[|\r\n]+/g, ' ').trim().slice(0, 60), url: String((x && x.url) || '').trim() }))
+    .map(x => ({ label: String((x && x.label) || '').replace(/[|\r\n\[\]]+/g, ' ').trim().slice(0, 60), url: String((x && x.url) || '').trim(), client: !!(x && x.client) }))
     .filter(x => /^https?:\/\/[^\s]+$/i.test(x.url))
     .slice(0, 30)
-    .map(x => (x.label ? x.label + ' | ' : '') + x.url)
+    .map(x => (x.client ? '[client] ' : '') + (x.label ? x.label + ' | ' : '') + x.url)
     .join('\n');
 }
 
@@ -339,7 +356,7 @@ function getAll(me) {
   let entries = [];
 
   if (last >= 2) {
-    const rows = m.getRange(2, 1, last - 1, C.links).getValues();
+    const rows = m.getRange(2, 1, last - 1, C.feedback).getValues();
     const ids = [];
     let idsChanged = false;
     rows.forEach(r => {
@@ -366,7 +383,8 @@ function getAll(me) {
         payment: String(r[C.payment - 1] || 'Unpaid'),
         notes: String(r[C.notes - 1] || ''),
         by: String(r[C.by - 1] || '').trim(),
-        links: String(r[C.links - 1] || '')
+        links: String(r[C.links - 1] || ''),
+        feedback: String(r[C.feedback - 1] || '')
       }));
   }
 
@@ -390,6 +408,7 @@ function getAll(me) {
 
   const team = readTeam();
   let clients = getClients();
+  if (me.role === 'member') clients = clients.map(c => { const x = Object.assign({}, c); delete x.portal; return x; });
   if (!me.money) clients = clients.map(c => Object.assign({}, c, { discount: 0 }));
   return {
     entries, services, plans, clients,
@@ -469,6 +488,9 @@ function updateEntry(d, me) {
   }
   const oldWork = String(s.getRange(row, C.work).getValue()).trim();
   const oldClient = String(s.getRange(row, C.client).getValue()).trim();
+  const oldStatus = String(s.getRange(row, C.status).getValue()).trim();
+  const fb = String(s.getRange(row, C.feedback).getValue() || '');
+  if (d.status === 'Delivered' && oldStatus !== 'Delivered' && /^changes/i.test(fb)) s.getRange(row, C.feedback).setValue(''); // dobara deliver -> client phir se review karega
   let saved = s.getRange(row, C.saved).getValue();
   if (isNum(d.rate)) saved = Number(d.rate);
   else if (oldWork !== d.work || low(oldClient) !== low(d.client)) saved = effectiveRate(d.client, d.work);
@@ -569,11 +591,12 @@ function getClients() {
   const s = clientsTab();
   const last = lastRowIn(s, 1);
   if (last < 2) return [];
-  return s.getRange(2, 1, last - 1, 6).getValues()
+  return s.getRange(2, 1, last - 1, 10).getValues()
     .filter(r => r[0] !== '')
     .map(r => ({
       name: String(r[0]).trim(), phone: String(r[1] || ''), photo: String(r[2] || ''),
-      notes: String(r[3] || ''), discount: num(r[4]), links: String(r[5] || '')
+      notes: String(r[3] || ''), discount: num(r[4]), links: String(r[5] || ''),
+      portal: { token: String(r[CP.token - 1] || ''), hasPin: !!r[CP.pin - 1], on: yes(r[CP.on - 1]), amounts: r[CP.amounts - 1] === '' ? true : yes(r[CP.amounts - 1]) }
     }));
 }
 
@@ -639,6 +662,107 @@ function deleteClient(name) {
   const row = findClientRow(name);
   if (row > 0) clientsTab().deleteRow(row);
   deleteRowsWhere(cpTab(), r => low(r[0]) === low(name));
+}
+
+/* ---------- client portal ---------- */
+
+// Owner/admin: portal on/off, PIN, amount dikhana, naya link
+function setPortal(d) {
+  const name = String(d.client || '').trim();
+  if (!name) throw new Error('Client chuno');
+  let row = findClientRow(name);
+  if (row < 0) { saveClient({ name: name }); row = findClientRow(name); }
+  const s = clientsTab();
+  const cur = s.getRange(row, 1, 1, 10).getValues()[0];
+  let token = String(cur[CP.token - 1] || '');
+  if (!token || d.newLink) token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
+  let pinHash = String(cur[CP.pin - 1] || '');
+  const pin = String(d.pin || '').trim();
+  if (pin) {
+    if (!/^\d{4,8}$/.test(pin)) throw new Error('Client PIN 4 se 8 number ka ho');
+    pinHash = hashPin('client|' + pin);
+  }
+  if (d.on && !pinHash) throw new Error('Portal on karne ke liye PIN set karo');
+  s.getRange(row, CP.token, 1, 4).setValues([[
+    token, pinHash,
+    d.on ? 'Yes' : 'No',
+    d.amounts === false ? 'No' : 'Yes'
+  ]]);
+}
+
+function portalClient(token) {
+  token = String(token || '').trim();
+  if (!/^[a-f0-9]{32,48}$/i.test(token)) return null;
+  const s = clientsTab();
+  const last = lastRowIn(s, 1);
+  if (last < 2) return null;
+  const rows = s.getRange(2, 1, last - 1, 10).getValues();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][CP.token - 1]) === token) return { row: i + 2, r: rows[i] };
+  }
+  return null;
+}
+
+function portalRequest(req) {
+  const cache = CacheService.getScriptCache();
+  const key = 'pf_' + String(req.portal).slice(0, 48);
+  const fails = Number(cache.get(key) || 0);
+  if (fails >= 10) return json({ ok: false, error: 'Bahut baar galat PIN. 15 minute baad try karo.' });
+  const found = portalClient(req.portal);
+  const bad = msg => { cache.put(key, String(fails + 1), 900); return json({ ok: false, error: msg }); };
+  if (!found) return bad('Link sahi nahi hai. Naya link maango.');
+  const r = found.r;
+  if (!yes(r[CP.on - 1])) return json({ ok: false, error: 'Portal abhi band hai. Agency se baat karo.' });
+  if (!r[CP.pin - 1] || hashPin('client|' + String(req.pin || '').trim()) !== String(r[CP.pin - 1])) return bad('Wrong PIN');
+  if (fails) cache.put(key, '0', 1);
+
+  const client = String(r[0]).trim();
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    if (req.action === 'portalFeedback') portalFeedback(client, req.data || {});
+    else if (req.action !== 'portalGet') return json({ ok: false, error: 'Unknown action' });
+    SpreadsheetApp.flush();
+    return json({ ok: true, data: portalData(client, r) });
+  } catch (err) {
+    return json({ ok: false, error: String(err.message || err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function portalData(client, r) {
+  const amounts = r[CP.amounts - 1] === '' ? true : yes(r[CP.amounts - 1]);
+  const st = getSettings();
+  const all = getAll({ name: 'portal', role: 'owner', view: 'all', money: true }).entries;
+  const entries = all.filter(e => low(e.client) === low(client)).map(e => ({
+    id: e.id, date: e.date, work: e.work, qty: e.qty, status: e.status, feedback: e.feedback,
+    amount: amounts ? e.amount : null, payment: amounts ? e.payment : null,
+    files: parseLinkLines(e.links).filter(l => l.client && /^https?:\/\//i.test(l.url)).map(l => ({ label: l.label, url: l.url }))
+  }));
+  return {
+    client: { name: client, photo: String(r[2] || '') },
+    amounts: amounts,
+    entries: entries,
+    brand: { brandName: st.brandName || 'Vertex Media', logo: st.logo || '', accent: st.accent || '', ownerName: st.ownerName || '', phone: st.contactPhone || '', email: st.contactEmail || '', instagram: st.instagram || '' },
+    upi: amounts && st.upiId ? { id: String(st.upiId), name: String(st.upiName || st.brandName || '') } : null
+  };
+}
+
+function portalFeedback(client, d) {
+  const s = masterTab();
+  const row = findEntryRow(d.id);
+  if (low(s.getRange(row, C.client).getValue()) !== low(client)) throw new Error('Ye kaam aapka nahi hai');
+  if (String(s.getRange(row, C.status).getValue()) !== 'Delivered') throw new Error('Kaam deliver hone ke baad hi feedback de sakte ho');
+  const note = String(d.comment || '').replace(/[\r\n|]+/g, ' ').trim().slice(0, 500);
+  const date = Utilities.formatDate(new Date(), tz(), 'yyyy-MM-dd');
+  if (d.decision === 'approve') {
+    s.getRange(row, C.feedback).setValue('Approved | ' + date + (note ? ' | ' + note : ''));
+  } else if (d.decision === 'changes') {
+    if (!note) throw new Error('Kya change chahiye, likho');
+    s.getRange(row, C.feedback).setValue('Changes | ' + date + ' | ' + note);
+    s.getRange(row, C.status).setValue('In progress');
+  } else throw new Error('Approve ya Changes chuno');
 }
 
 /* ---------- settings (brand, logo, colour, target) ---------- */

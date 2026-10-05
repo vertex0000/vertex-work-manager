@@ -382,6 +382,31 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
 .who-me{display:flex;align-items:center;gap:10px;padding:8px 12px;white-space:nowrap}
 .who-me small{display:block;color:var(--faint);font-size:11px}
 .who-me b{font-size:12.5px}
+/* ================= CLIENT PORTAL ================= */
+.vis{border:0;border-left:1px solid var(--line);background:none;color:var(--faint);padding:0 8px;align-self:stretch;display:grid;place-items:center}
+.vis.on{color:var(--green);background:var(--green-soft)}
+.vis svg.i{width:15px;height:15px}
+.ctag{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--green);background:var(--green-soft);border-radius:4px;padding:1px 5px}
+.fb{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;margin-left:6px;white-space:nowrap}
+.fb.ok{background:var(--green-soft);color:var(--green)} .fb.ch{background:var(--coral-soft);color:var(--coral)}
+.fb-box{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;font-size:12.5px}
+.fb-box.ok{background:var(--green-soft)} .fb-box.ch{background:var(--coral-soft)}
+.fb-box b{display:block}
+.pt-wrap{max-width:1100px;margin:0 auto;padding:16px 16px 60px}
+.pt-top{display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:18px}
+.pt-top .logo{width:40px;height:40px}
+.pt-hero{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin:6px 0 16px}
+.pt-hero h1{margin:0 0 4px;font-size:28px;font-weight:800;letter-spacing:-.02em}
+.pt-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.pw-card{padding:16px;border-radius:16px;display:flex;flex-direction:column;gap:10px}
+.pw-card .hd{display:flex;align-items:flex-start;gap:10px}
+.pw-card .hd b{font-size:15px;font-weight:800;display:block}
+.pw-card .hd small{color:var(--muted);font-size:12px}
+.pw-card .ft{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.review{border:2px solid var(--acc)}
+.qr{width:200px;height:200px;margin:0 auto;background:#fff;padding:10px;border-radius:12px;display:grid;place-items:center}
+.qr img,.qr canvas{width:180px!important;height:180px!important}
 /* ================= MOBILE ================= */
 .mnav,.fab{display:none}
 @media (max-width:1100px){
@@ -408,6 +433,9 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
   .stat .ic{width:34px;height:34px}
   .pr-in{width:78px}
   .lk-add{grid-template-columns:1fr}
+  .pt-cards{grid-template-columns:1fr 1fr}
+  .pt-grid{grid-template-columns:1fr}
+  .pt-hero h1{font-size:22px}
   .lk .t{max-width:170px}
   .m1{grid-template-columns:1fr}
   .pt th,.pt td{padding:10px 8px}
@@ -485,6 +513,7 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
   <nav class="mnav glass" id="mnav"></nav>
   <button class="fab" data-act="addEntry" aria-label="Add work"><svg class="i"><use href="#i-plus"/></svg></button>
 </div>
+<div id="portal" hidden></div>
 <div class="modal" id="modal"><div class="box" id="mbox"></div></div>
 <div id="toasts"></div>
 <input type="file" id="filePick" accept="image/*" hidden>
@@ -520,6 +549,9 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></symbol>
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
   <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></symbol>
   <symbol id="i-percent" viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></symbol>
 </svg>
 
@@ -562,7 +594,7 @@ const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0])
 const isNum = v => v!=='' && v!=null && !isNaN(Number(v));
 function monthKeys(n){ const d=new Date(), o=[]; for(let i=n-1;i>=0;i--) o.push(ymd(new Date(d.getFullYear(),d.getMonth()-i,1)).slice(0,7)); return o; }
 function waLink(phone,text){ let p=String(phone||'').replace(/\D/g,''); if(p.length===10) p='91'+p; return 'https://wa.me/'+p+'?text='+encodeURIComponent(text); }
-const set = k => { const v=S.data.settings||{}, D={brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:'',contactPhone:'',contactEmail:'',instagram:'',website:'',pdfNote:'Any changes requested after approval will be charged separately.'}; return (v[k]===undefined||v[k]==='')?D[k]:v[k]; };
+const set = k => { const v=S.data.settings||{}, D={upiId:'',upiName:'',brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:'',contactPhone:'',contactEmail:'',instagram:'',website:'',pdfNote:'Any changes requested after approval will be charged separately.'}; return (v[k]===undefined||v[k]==='')?D[k]:v[k]; };
 function widgets(){ let w={}; try{ w=JSON.parse(set('widgets2')||'{}')||{}; }catch(e){} return Object.assign({target:true,cards:true,charts:true,todo:true,dues:true},w); }
 function toast(msg,bad){ const t=document.createElement('div'); t.className='toast'+(bad?' err':''); t.textContent=msg; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),2600); }
 let busy=0; function loading(on){ busy+=on?1:-1; let l=$('#loader'); if(busy>0&&!l){ l=document.createElement('div'); l.id='loader'; l.className='loader'; document.body.appendChild(l);} if(busy<=0){ busy=0; l&&l.remove(); } }
@@ -587,18 +619,20 @@ const roleLabel = r => ({owner:'Owner',admin:'Admin',member:'Member'})[r]||'Memb
 
 /* ================= FILES & LINKS ================= */
 function parseLinks(v){
-  const arr=Array.isArray(v)?v:String(v||'').split('\n').map(l=>{ const i=l.lastIndexOf(' | '); return i>=0?{label:l.slice(0,i),url:l.slice(i+3)}:{label:'',url:l}; });
-  return arr.map(x=>({label:String(x.label||'').trim(),url:String(x.url||'').trim()})).filter(x=>/^https?:\/\/\S+$/i.test(x.url));
+  const arr=Array.isArray(v)?v:String(v||'').split('\n').map(l=>{ let c=false; l=l.trim(); if(/^\[client\]\s*/i.test(l)){ c=true; l=l.replace(/^\[client\]\s*/i,''); } const i=l.lastIndexOf(' | '); return i>=0?{label:l.slice(0,i),url:l.slice(i+3),client:c}:{label:'',url:l,client:c}; });
+  return arr.map(x=>({label:String(x.label||'').trim(),url:String(x.url||'').trim(),client:!!x.client})).filter(x=>/^https?:\/\/\S+$/i.test(x.url));
 }
 const LKSRC=[[/drive\.google|docs\.google/,'Google Drive','G','#1FA463'],[/photos\.google|photos\.app\.goo/,'Google Photos','P','#EA4335'],[/dropbox/,'Dropbox','D','#0061FF'],[/wetransfer|we\.tl/,'WeTransfer','W','#409FFF'],[/onedrive|1drv|sharepoint/,'OneDrive','O','#0F6CBD'],[/instagram/,'Instagram','I','#D6249F'],[/youtu/,'YouTube','Y','#FF0000'],[/canva/,'Canva','C','#00C4CC'],[/figma/,'Figma','F','#A259FF'],[/mega\.nz/,'MEGA','M','#D9272E'],[/frame\.io/,'Frame.io','F','#5B53FF'],[/wa\.me|whatsapp/,'WhatsApp','W','#25D366']];
 function linkMeta(url){ let h=''; try{ h=new URL(url).hostname.replace(/^www\./,''); }catch(e){} const f=LKSRC.find(x=>x[0].test(h)); return f?{name:f[1],k:f[2],c:f[3],host:h}:{name:h||'Link',k:(h[0]||'L').toUpperCase(),c:'#6B7281',host:h}; }
-function linkChip(l,del){ const m=linkMeta(l.url); return `<span class="lkw"><a class="lk" href="${esc(l.url)}" target="_blank" rel="noopener" data-stop="1" title="${esc(l.url)}"><span class="li" style="--c:${m.c}">${esc(m.k)}</span><span class="t">${esc(l.label||m.name)}</span>${l.label?`<small>${esc(m.name)}</small>`:''}${ic('link').replace('class="i"','class="i" style="width:13px;height:13px;color:var(--muted)"')}</a>${del?`<button class="x" data-act="lkDel" data-arg="${del}" title="Remove">×</button>`:''}</span>`; }
+function linkChip(l,del,vis){ const m=linkMeta(l.url); return `<span class="lkw"><a class="lk" href="${esc(l.url)}" target="_blank" rel="noopener" data-stop="1" title="${esc(l.url)}"><span class="li" style="--c:${m.c}">${esc(m.k)}</span><span class="t">${esc(l.label||m.name)}</span>${l.label?`<small>${esc(m.name)}</small>`:''}${l.client&&!vis?'<span class="ctag">Client</span>':''}${ic('link').replace('class="i"','class="i" style="width:13px;height:13px;color:var(--muted)"')}</a>${vis?`<button class="vis ${l.client?'on':''}" data-act="lkVis" data-arg="${del}" title="${l.client?'Client ko dikhega (click: band karo)':'Sirf team (click: client ko dikhao)'}">${ic('eye')}</button>`:''}${del?`<button class="x" data-act="lkDel" data-arg="${del}" title="Remove">×</button>`:''}</span>`; }
 const LKS={};
-function linksEditor(id,list,title,hint){ LKS[id]=parseLinks(list); return `<div class="lk-sec"><h4>${ic('link')}${title}<small>${hint||''}</small></h4><div class="lk-list" id="${id}L">${lkListHtml(id)}</div>
-  <div class="lk-add"><input class="inp" id="${id}U" placeholder="Link paste karo: Google Drive, WeTransfer, Dropbox…" autocomplete="off"><input class="inp" id="${id}N" placeholder="Naam (optional)"><button class="btn" type="button" data-act="lkAdd" data-arg="${id}">${ic('plus')}Add</button></div></div>`; }
-function lkListHtml(id){ const L=LKS[id]||[]; return L.length?L.map((l,i)=>linkChip(l,id+':'+i)).join(''):'<span class="muted" style="font-size:12.5px">Abhi koi link nahi. Raw photos, videos ya reference ka link yahan daalo.</span>'; }
+const LKVIS={};
+function linksEditor(id,list,title,hint,vis){ LKS[id]=parseLinks(list); LKVIS[id]=!!vis; return `<div class="lk-sec"><h4>${ic('link')}${title}<small>${hint||''}</small></h4><div class="lk-list" id="${id}L">${lkListHtml(id)}</div>
+  <div class="lk-add"><input class="inp" id="${id}U" placeholder="Link paste karo: Google Drive, WeTransfer, Dropbox…" autocomplete="off"><input class="inp" id="${id}N" placeholder="Naam (optional)"><button class="btn" type="button" data-act="lkAdd" data-arg="${id}">${ic('plus')}Add</button></div>
+  ${vis?`<label style="display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:600;color:var(--muted);margin-top:8px"><input type="checkbox" id="${id}C"> Naya link client ko bhi dikhao (final files ke liye). ${ic('eye').replace('class="i"','class="i" style="width:14px;height:14px"')} se baad mein badal sakte ho</label>`:''}</div>`; }
+function lkListHtml(id){ const L=LKS[id]||[]; return L.length?L.map((l,i)=>linkChip(l,id+':'+i,LKVIS[id])).join(''):'<span class="muted" style="font-size:12.5px">Abhi koi link nahi. Raw photos, videos ya reference ka link yahan daalo.</span>'; }
 function lkAdd(id){ const u=$('#'+id+'U'), n=$('#'+id+'N'); let url=u.value.trim(); if(!url) return toast('Pehle link paste karo',true); if(!/^https?:\/\//i.test(url)) url='https://'+url;
-  if(!parseLinks([{url}]).length) return toast('Ye sahi link nahi lag raha',true); (LKS[id]=LKS[id]||[]).push({label:n.value.trim(),url}); u.value=''; n.value=''; $('#'+id+'L').innerHTML=lkListHtml(id); u.focus(); }
+  if(!parseLinks([{url}]).length) return toast('Ye sahi link nahi lag raha',true); (LKS[id]=LKS[id]||[]).push({label:n.value.trim(),url,client:!!($('#'+id+'C')&&$('#'+id+'C').checked)}); u.value=''; n.value=''; $('#'+id+'L').innerHTML=lkListHtml(id); u.focus(); }
 function bindLinks(id){ const u=$('#'+id+'U'); if(!u) return; u.addEventListener('paste',()=>setTimeout(()=>{ if(/^https?:\/\/\S+$/i.test(u.value.trim())&&!$('#'+id+'N').value) $('#'+id+'N').focus(); },0)); u.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lkAdd(id); } }); $('#'+id+'N').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lkAdd(id); } }); }
 function pendingLink(id){ const u=$('#'+id+'U'); if(u&&u.value.trim()) lkAdd(id); return LKS[id]||[]; }
 function linksMenu(id,btn){
@@ -607,6 +641,10 @@ function linksMenu(id,btn){
   document.body.appendChild(m); m.style.top=Math.min(innerHeight-m.offsetHeight-10,r.bottom+6)+'px'; m.style.left=Math.max(10,Math.min(innerWidth-m.offsetWidth-10,r.right-m.offsetWidth))+'px';
 }
 function joinLink(){ const u=CFG.url||'https://script.google.com/macros/s/DEMO/exec'; return location.origin+location.pathname+'#join='+btoa(unescape(encodeURIComponent(u))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
+function parseFb(v){ const p=String(v||'').split(' | '); if(!p[0]) return null; const t=/^approved/i.test(p[0])?'ok':/^changes/i.test(p[0])?'ch':''; return t?{t,date:p[1]||'',note:p.slice(2).join(' | ')}:null; }
+function fbPill(e){ const f=parseFb(e.feedback); if(!f) return ''; return f.t==='ok'?`<span class="fb ok" title="Client ne approve kiya ${esc(dLabel(f.date))}">${ic('check').replace('class="i"','class="i" style="width:12px;height:12px"')}Approved</span>`:`<span class="fb ch" title="${esc(f.note)}">↺ Changes</span>`; }
+function fbBox(e){ const f=parseFb(e.feedback); if(!f) return ''; return `<div class="fb-box ${f.t}">${ic(f.t==='ok'?'check':'msg')}<div><b>${f.t==='ok'?'Client ne approve kiya':'Client ko changes chahiye'}</b>${f.note?esc(f.note)+'<br>':''}<small class="muted">${dLabel(f.date)}</small></div></div>`; }
 
 /* ================= PRICING ENGINE ================= */
 // 1) client special price  2) client discount %  3) standard price
@@ -658,7 +696,7 @@ function demoApi(a,d){
   const D=S.data;
   const calc=e=>{ e.rate=e._saved!=null&&e._saved!==''?+e._saved:(stdRate(e.work)||0); e.amount=(e.qty===''||e.qty==null?1:+e.qty)*e.rate+(+e.changes||0); return e; };
   const eff=(c,w)=>{ const r=effRate(c,w).rate; return r==null?'':r; };
-  const dl=v=>parseLinks(v).map(x=>(x.label?x.label+' | ':'')+x.url).join('\n');
+  const dl=v=>parseLinks(v).map(x=>(x.client?'[client] ':'')+(x.label?x.label+' | ':'')+x.url).join('\n');
   switch(a){
     case 'addEntry': D.entries.push(calc({...d,links:dl(d.links),by:ME().name,id:'D'+Date.now(),_saved:isNum(d.rate)?+d.rate:eff(d.client,d.work)})); break;
     case 'updateEntry': { const i=D.entries.findIndex(e=>e.id===d.id), o=D.entries[i]; let sv=o._saved; if(isNum(d.rate)) sv=+d.rate; else if(o.work!==d.work||low(o.client)!==low(d.client)) sv=eff(d.client,d.work); D.entries[i]=calc({...o,...d,links:d.links!==undefined?dl(d.links):o.links,by:o.by,_saved:sv}); break; }
@@ -676,6 +714,8 @@ function demoApi(a,d){
     case 'saveMember': { if(!d.name) throw new Error('Member ka naam zaroori hai'); const old=d.oldName; let m=old?D.team.find(t=>t.name===old):null; if(!m&&!d.pin) throw new Error('Naye member ke liye PIN zaroori hai'); if(d.pin&&!/^\d{6,12}$/.test(d.pin)) throw new Error('PIN 6 se 12 number ka hona chahiye');
       if(!m){ m={added:today()}; D.team.push(m); } if(old&&old!==d.name) D.entries.forEach(e=>{ if(e.by===old) e.by=d.name; }); Object.assign(m,{name:d.name,role:d.role==='admin'?'admin':'member',view:d.view==='all'?'all':'own',money:!!d.money,active:d.active!==false,phone:d.phone||''}); break; }
     case 'deleteMember': D.team=D.team.filter(t=>t.name!==d.name); break;
+    case 'setPortal': { let c=clientProfile(d.client); if(!c){ c={name:d.client,phone:'',photo:'',notes:'',discount:0}; D.clients.push(c); } const po=c.portal||{}; if(d.on&&!d.pin&&!po.hasPin) throw new Error('Portal on karne ke liye PIN set karo');
+      c.portal={token:(!po.token||d.newLink)?Array.from({length:40},()=>'0123456789abcdef'[Math.floor(Math.random()*16)]).join(''):po.token,hasPin:po.hasPin||!!d.pin,on:!!d.on,amounts:d.amounts!==false}; break; }
   }
   D.entries.forEach(calc);
   return Promise.resolve(D);
@@ -697,6 +737,8 @@ function demoData(){
   const plans=[['What you get','Starter','Growth','Premium'],['Best for','New cafe or salon starting online','Shop or restaurant that wants enquiries','Multi-outlet business or D2C brand'],['Social posts','12','16','24'],['Reels (up to 30 sec)','3','6','10'],['Shoot hours','-','2','4'],['Design images (banner, listing, A+)','-','2','4'],['Meta Ads management','No','Yes','Yes'],['Caption, hashtags, scheduling','Yes','Yes','Yes'],['Revision rounds','1','2','3'],['Reporting','Monthly summary','Monthly report','Monthly report + review call'],['Client ad budget (paid to Meta directly)','Not included','₹3,000+ per month','₹6,000+ per month'],['Price per month (₹)','₹5,000','₹11,500','₹15,000'],['3 months advance, 5% off (₹)','₹14,250','₹32,775','₹42,750']];
   entries.forEach((e,i)=>{ e.by=i%5===1?'Rahul':i%7===2?'Priya':'Shivam'; if(i%4===0) e.links=['Raw photos | https://drive.google.com/drive/folders/demo'+i,'https://we.tl/t-demo'+i].slice(0,1+i%2).join('\n'); });
   S.data.clients[0].links='Brand kit | https://drive.google.com/drive/folders/brewcafe-brand\nInstagram | https://instagram.com/brewcafe';
+  S.data.clients[0].portal={token:'dec0de0b00caafe0000000000000000000000000',hasPin:true,on:true,amounts:true};
+  entries.forEach((e,i)=>{ if(e.status==='Delivered'&&i%3===0){ e.links=(e.links?e.links+'\n':'')+'[client] Final files | https://drive.google.com/drive/folders/final'+i; } if(e.status==='Delivered'&&i%6===0) e.feedback='Approved | '+e.date; if(i%11===3){ e.status='In progress'; e.feedback='Changes | '+e.date+' | Logo thoda bada aur colour brand jaisa karo'; } });
   return {...S.data,entries,plans,me:{name:'Shivam',role:'owner',view:'all',money:true},team:[{name:'Rahul',role:'member',view:'own',money:false,active:true,phone:'9800000001',added:'2026-09-20'},{name:'Priya',role:'admin',view:'all',money:true,active:true,phone:'9800000002',added:'2026-09-25'}],settings:{brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:''}};
 }
 
@@ -808,7 +850,7 @@ function vHome(){
   </div>`:''}
   ${W.todo?`<div class="home-2">
     <div class="card glass"><div class="card-h"><h3>Do this now</h3><span class="home-n">${S.data.entries.filter(e=>e.status!=='Delivered').length} jobs</span><button class="lnk" data-act="workTab" data-arg="Pending">View all →</button></div>
-      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}" ${mine(e)?'':'disabled'}><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}</small></div>${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
+      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}" ${mine(e)?'':'disabled'}><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}</small></div>${fbPill(e)}${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
     <div class="card glass"><div class="card-h"><h3>Recent work</h3><button class="lnk" data-act="go" data-arg="work">View all →</button></div>
       <div class="home-list">${recent.length?recent.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}">${avatar(e.client,'sm')}<div class="grow"><b>${esc(e.client)}</b><small>${esc(e.work)} · ${dLabel(e.date)}</small></div><span class="amt">${inr(e.amount)}</span>${payPill(e)}</div>`).join(''):'<div class="empty">Pehli entry add karo</div>'}</div></div>
   </div>`:''}
@@ -841,7 +883,7 @@ function vHomeWork(){
   </div>
   <div class="home-2">
     <div class="card glass"><div class="card-h"><h3>Do this now</h3><span class="home-n">${E.filter(e=>e.status!=='Delivered').length} jobs</span><button class="lnk" data-act="workTab" data-arg="Pending">View all →</button></div>
-      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}" ${mine(e)?'':'disabled'}><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}${me.view==='all'?' · '+esc(byOf(e)):''}</small></div>${parseLinks(e.links).length?`<span class="clip">${ic('link')}${parseLinks(e.links).length}</span>`:''}${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
+      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}" ${mine(e)?'':'disabled'}><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}${me.view==='all'?' · '+esc(byOf(e)):''}</small></div>${fbPill(e)}${parseLinks(e.links).length?`<span class="clip">${ic('link')}${parseLinks(e.links).length}</span>`:''}${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
     <div class="card glass"><div class="card-h"><h3>Recent work</h3><button class="lnk" data-act="go" data-arg="work">View all →</button></div>
       <div class="home-list">${recent.length?recent.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}">${avatar(e.client,'sm')}<div class="grow"><b>${esc(e.client)}</b><small>${esc(e.work)} · ${dLabel(e.date)}</small></div>${statusPill(e)}</div>`).join(''):'<div class="empty">Pehli entry add karo</div>'}</div></div>
   </div>`;
@@ -875,7 +917,7 @@ function workTable(){
     <td><div class="who">${avatar(e.client,'sm')}<b>${esc(e.client)}</b></div></td><td>${esc(e.work)}</td><td class="num">${e.qty===''?1:e.qty}</td>
     ${M?`<td class="num">${sp?`<span class="strike">${inr(std)}</span>`:''}${inr(e.rate)}${sp?'<span class="tag">special</span>':''}</td>
     <td class="num">${e.changes?inr(e.changes):'<span class="muted">-</span>'}</td><td class="num"><b>${inr(e.amount)}</b></td>`:''}
-    <td>${statusPill(e,own)}</td>${M?`<td>${payPill(e,own)}</td>`:''}
+    <td>${statusPill(e,own)}${fbPill(e)}</td>${M?`<td>${payPill(e,own)}</td>`:''}
     <td>${L.length?`<button class="clip" data-act="linksMenu" data-arg="${e.id}" title="Files & links">${ic('link')}${L.length}</button>`:'<span class="muted">-</span>'}</td>
     ${showBy?`<td><div class="who">${avatar(byOf(e),'sm')}<span style="font-size:12.5px">${esc(byOf(e))}</span></div></td>`:''}
     <td><div class="acts"><button class="ibtn sm" data-act="entryMenu" data-arg="${e.id}" title="More">${ic('more')}</button></div></td></tr>`; }).join('')}
@@ -1056,6 +1098,7 @@ function openEntry(id,preset){
   const dis=RO?'disabled':'';
   modal(mHead(RO?'Work details':id?'Edit work':'Add work',id?`Added by ${esc(byOf(e))}`:'Ye entry sheet ke Master tab mein jayegi')+`<div class="m-body">
     ${RO?`<div class="ro-note">${ic('info')}Ye kaam ${esc(byOf(e))} ne add kiya hai. Tum sirf dekh sakte ho aur files khol sakte ho.</div>`:''}
+    ${id?fbBox(e):''}
     <div class="field"><label>Client</label><div class="cl-in"><span id="eAv">${avatar(e.client||'?','sm')}</span><input id="eCl" list="clL" value="${esc(e.client)}" placeholder="Client ka naam likho ya chuno" autocomplete="off" ${dis}><span id="ePl"></span></div><datalist id="clL">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
     <div class="f2"><div class="field"><label>Date</label><input class="inp" type="date" id="eD" value="${esc(e.date)}" ${dis}></div><div class="field"><label>Phone</label><input class="inp" id="ePh" inputmode="tel" value="${esc(e.phone)}" placeholder="10 digit" ${dis}></div></div>
     <div class="field"><label>Work type</label><select class="inp" id="eW" ${dis}><option value="">Service chuno</option>${opts}</select></div>
@@ -1064,7 +1107,7 @@ function openEntry(id,preset){
       <div class="field"><label>Changes (₹)</label><input class="inp" id="eC" inputmode="numeric" value="${esc(e.changes)}" placeholder="0" ${dis}><small>Amount mein plus</small></div>`:'<div></div>'}</div>
     <div class="f1"><div class="field"><label>Status</label><div class="seg" id="eS">${['Pending','In progress','Delivered'].map(s=>`<button type="button" class="segb ${e.status===s?'active':''}" data-v="${s}" ${dis}>${s}</button>`).join('')}</div></div>
       ${M?`<div class="field"><label>Payment</label><div class="seg" id="eP">${['Unpaid','Paid'].map(s=>`<button type="button" class="segb ${e.payment===s?'active':''}" data-v="${s}" ${dis}>${s}</button>`).join('')}</div></div>`:''}</div>
-    ${RO?(parseLinks(e.links).length?`<div class="lk-sec"><h4>${ic('link')}Files & links</h4><div class="lk-list">${parseLinks(e.links).map(l=>linkChip(l)).join('')}</div></div>`:''):linksEditor('eLk',e.links,'Files & links','Client ka raw material, reference, final files')}
+    ${RO?(parseLinks(e.links).length?`<div class="lk-sec"><h4>${ic('link')}Files & links</h4><div class="lk-list">${parseLinks(e.links).map(l=>linkChip(l)).join('')}</div></div>`:''):linksEditor('eLk',e.links,'Files & links','Raw material, reference, final files',true)}
     <div class="field"><label>Notes</label><textarea class="inp" id="eN" placeholder="Optional" ${dis}>${esc(e.notes)}</textarea></div>
     ${M?`<div class="calc"><div><span id="eCalc"></span><div id="eSave" class="save-badge"></div></div><b id="eTot"></b></div>`:''}
   </div><div class="m-foot">${id&&!RO?`<button class="btn danger" data-act="delEntry" data-arg="${e.id}">${ic('trash')}Delete</button>`:''}<span class="grow"></span><button class="btn" data-act="close">${RO?'Close':'Cancel'}</button>${RO?'':`<button class="btn primary" id="eGo">${id?'Save changes':'Add work'}</button>`}</div>`,'narrow');
@@ -1113,7 +1156,7 @@ function openClient(name,tab){
 }
 function drawClient(){
   const c=CD, n=c.name||'New client', ph=c.photo!==undefined?c.photo:c.curPhoto;
-  const tabs=[['profile','Profile'],['files','Files & links'],...(canManage()?[['pricing','Pricing']]:[]),...(c.old?[['work','Work']]:[])];
+  const tabs=[['profile','Profile'],['files','Files & links'],...(canManage()?[['pricing','Pricing']]:[]),...(c.old?[['work','Work']]:[]),...(c.old&&canManage()?[['portal','Client portal']]:[])];
   const ren=!c.old||canManage();
   let body='';
   if(c.tab==='profile'){
@@ -1126,6 +1169,16 @@ function drawClient(){
     body=`${linksEditor('cLk',LKS.cLk,'Client ke files','Brand kit, logo, Drive folder, reference')}
     <div class="lk-sec"><h4>${ic('work')}Kaam ke files<small>Har work entry mein daale gaye links</small></h4>
     ${ws.length?ws.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:6px"><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><span class="muted">${dLabel(e.date)} · ${esc(byOf(e))}</span></div><div class="lk-list">${parseLinks(e.links).map(l=>linkChip(l)).join('')}</div></div>`).join(''):'<span class="muted" style="font-size:12.5px">Is client ke kisi kaam mein abhi link nahi hai.</span>'}</div>`;
+  } else if(c.tab==='portal'){
+    const po=(clientProfile(c.old)||{}).portal||{}, link=po.token?portalLink(po.token):'';
+    if(CD.pOn===undefined){ CD.pOn=!!po.on; CD.pAmt=po.amounts!==false; }
+    body=`<div class="note-box">Client ko ek private link milega. PIN daal ke woh <b>sirf apna kaam</b>, final files ${CD.pAmt?'aur apna bill ':''}dekh payega, aur delivered kaam ko <b>Approve</b> ya <b>Changes</b> bol payega. Doosre clients, team, notes, prices kuch nahi dikhega.</div>
+    <div class="tg"><span>Client portal on</span><label class="sw"><input type="checkbox" id="pOn" ${CD.pOn?'checked':''}><i></i></label></div>
+    <div class="tg"><span>Amount, payment aur Pay (UPI) button dikhao</span><label class="sw"><input type="checkbox" id="pAmt" ${CD.pAmt?'checked':''}><i></i></label></div>
+    <div class="field"><label>${po.hasPin?'Naya PIN (khaali chhodo to purana rahega)':'Client ka PIN'}</label><div style="display:flex;gap:8px"><input class="inp pin" id="pPin" inputmode="numeric" maxlength="8" placeholder="4-8 digit"><button class="btn" type="button" data-act="genCPin">Generate</button></div></div>
+    ${!set('upiId')&&CD.pAmt?`<div class="ro-note">${ic('info')}UPI ID abhi set nahi hai. <button class="btn-link" data-act="settings" data-arg="pay">Settings → Payments</button> mein daalo.</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="savePortal">${ic('check')}Save portal</button>${link?`<button class="btn" data-act="sharePortal">${ic('wa')}Link bhejo</button><a class="btn" data-stop="1" href="${esc(link)}" target="_blank">${ic('eye')}Client ki nazar se dekho</a>`:''}</div>
+    ${link?`<div class="share"><div class="field"><label>Client ka link</label><code>${esc(link)}</code></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn sm" data-act="copyPortal">Copy link</button><button class="btn-link" data-act="newPortalLink">Naya link banao (purana band ho jayega)</button></div></div>`:''}`;
   } else if(c.tab==='pricing'){
     const d=+c.discount||0;
     body=`<div class="field"><label>Is client ko kaunsa price lagega?</label><div class="seg"><button class="segb ${c.mode==='standard'?'active':''}" data-act="cMode" data-arg="standard">Standard (sabke jaisa)</button><button class="segb ${c.mode==='special'?'active':''}" data-act="cMode" data-arg="special">Special price</button></div></div>`+
@@ -1147,6 +1200,24 @@ function drawClient(){
     <div class="m-body">${body}</div>
     <div class="m-foot">${c.old&&clientProfile(c.old)&&canManage()?`<button class="btn danger" data-act="delClient" data-arg="${esc(c.old)}">${ic('trash')}</button>`:''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="cGo">${c.old?'Save client':'Add client'}</button></div>`);
   bindClient(); if(c.tab==='files') bindLinks('cLk');
+  if(c.tab==='portal'){ $('#pOn').onchange=()=>{ CD.pOn=$('#pOn').checked; }; $('#pAmt').onchange=()=>{ CD.pAmt=$('#pAmt').checked; }; }
+}
+function portalLink(token){ const u=CFG.url||'https://script.google.com/macros/s/DEMO/exec'; return location.origin+location.pathname+'#portal='+token+'.'+btoa(unescape(encodeURIComponent(u))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+async function savePortal(newLink){
+  const pin=($('#pPin')||{}).value?$('#pPin').value.trim():'';
+  if(pin&&!/^\d{4,8}$/.test(pin)) return toast('PIN 4 se 8 number ka ho',true);
+  const po=(clientProfile(CD.old)||{}).portal||{};
+  if(CD.pOn&&!pin&&!po.hasPin) return toast('Pehle PIN daalo ya Generate dabao',true);
+  const ok=await run('setPortal',{client:CD.old,on:!!CD.pOn,amounts:!!CD.pAmt,pin,newLink:!!newLink},newLink?'Naya link ban gaya':'Portal saved');
+  if(!ok) return;
+  if(pin||newLink) sharePortal(pin); else { CD.tab='portal'; CD.stats=clientList().find(x=>low(x.name)===low(CD.old)); drawClient(); }
+}
+function sharePortal(pin){
+  const c=clientProfile(CD.old)||{name:CD.old}, po=c.portal||{}, link=portalLink(po.token||'');
+  const msg=`Hi ${c.name}, ${set('brandName')} ke saath aapka kaam, files aur payment yahan dekh sakte ho:\n${link}${pin?`\nPIN: ${pin}`:'\nPIN aapko alag se bheja gaya hai.'}`;
+  modal(mHead('Client portal link',`${esc(c.name)} ko bhejo${pin?'. PIN dobara nahi dikhega.':''}`)+`<div class="m-body"><div class="share"><div class="field"><label>Link</label><code>${esc(link)}</code></div>${pin?`<div class="field"><label>PIN</label><div class="pinbig">${esc(pin)}</div></div>`:''}</div></div>
+    <div class="m-foot"><button class="btn" id="shCp">Copy</button><span class="grow"></span><a class="btn wa" data-stop="1" target="_blank" href="${c.phone?waLink(c.phone,msg):'https://wa.me/?text='+encodeURIComponent(msg)}">${ic('wa')}WhatsApp pe bhejo</a><button class="btn primary" data-act="openClient" data-arg="${esc(c.name)}" data-tab="portal">Done</button></div>`,'narrow');
+  $('#shCp').onclick=()=>{ try{ navigator.clipboard.writeText(msg); toast('Copied'); }catch(e){ toast('Copy nahi hua',true); } };
 }
 function saveTxt(std,price){ if(std==null||price==null||isNaN(price)) return '<span class="muted">-</span>'; const d=std-price; return d>0?`<span class="save-badge">−${inr(d)}</span>`:d<0?`<span class="down">+${inr(-d)}</span>`:'<span class="muted">-</span>'; }
 function readClientForm(){
@@ -1194,9 +1265,9 @@ function pickClientPrice(){
 /* ---------- settings (Nodevers style) ---------- */
 let SD=null;
 const SWATCH=['#6F8FE8','#111318','#E01F26','#2FA36B','#0891B2','#8B6FD6','#D97706','#DB2777'];
-function openSettings(sec){ if(!isOwner()) return moreMenu(); SD={sec:sec||'brand',brandName:set('brandName'),ownerName:set('ownerName'),contactPhone:set('contactPhone'),contactEmail:set('contactEmail'),instagram:set('instagram'),website:set('website'),pdfNote:set('pdfNote'),accent:set('accent'),monthlyTarget:set('monthlyTarget'),widgets:widgets(),url:CFG.url}; drawSettings(); }
+function openSettings(sec){ if(!isOwner()) return moreMenu(); SD={upiId:set('upiId'),upiName:set('upiName'),sec:sec||'brand',brandName:set('brandName'),ownerName:set('ownerName'),contactPhone:set('contactPhone'),contactEmail:set('contactEmail'),instagram:set('instagram'),website:set('website'),pdfNote:set('pdfNote'),accent:set('accent'),monthlyTarget:set('monthlyTarget'),widgets:widgets(),url:CFG.url}; drawSettings(); }
 function drawSettings(){
-  const L=[['brand','Branding & profile',`${esc(SD.brandName)} · ${set('logo')?'logo set':'no logo yet'}`,'palette','#E8707E'],['look','Appearance','Colour, light / dark','layout','#8B6FD6'],['dash','Dashboard','Target, home cards','home','#2FA36B'],['conn','Connection',S.demo?'Demo mode':'Google Sheet connected','link','#C58B2B']];
+  const L=[['brand','Branding & profile',`${esc(SD.brandName)} · ${set('logo')?'logo set':'no logo yet'}`,'palette','#E8707E'],['look','Appearance','Colour, light / dark','layout','#8B6FD6'],['dash','Dashboard','Target, home cards','home','#2FA36B'],['pay','Payments (UPI)',set('upiId')?esc(set('upiId')):'UPI ID set nahi','wallet','#2FA36B'],['conn','Connection',S.demo?'Demo mode':'Google Sheet connected','link','#C58B2B']];
   const W=SD.widgets, WL={target:'Target card',cards:'Summary cards',charts:'Charts',todo:'Do this now + Recent work',dues:'Payment pending'};
   let pane='';
   if(SD.sec==='brand') pane=`<div class="set-pt"><b>Branding & profile</b><small>Website name, logo, aur tumhara naam</small></div>
@@ -1212,6 +1283,10 @@ function drawSettings(){
   if(SD.sec==='dash') pane=`<div class="set-pt"><b>Dashboard</b><small>Monthly target aur Home pe kya dikhe</small></div>
     <div class="field"><label>Monthly target (₹)</label><input class="inp" id="stT" inputmode="numeric" style="max-width:220px" value="${esc(SD.monthlyTarget)}"></div>
     <div>${Object.keys(WL).map(k=>`<div class="tg"><span>${WL[k]}</span><label class="sw"><input type="checkbox" data-wg="${k}" ${W[k]?'checked':''}><i></i></label></div>`).join('')}</div>`;
+  if(SD.sec==='pay') pane=`<div class="set-pt"><b>Payments (UPI)</b><small>Client portal pe "Pay now" button aur QR code isi UPI ID pe banega. Kabhi bhi badal sakte ho.</small></div>
+    <div class="field"><label>UPI ID</label><input class="inp" id="stUpi" value="${esc(SD.upiId)}" placeholder="e.g. 7021508201@ybl ya name@okaxis"><small>Khaali chhodo to Pay button nahi dikhega</small></div>
+    <div class="field"><label>Payee name (UPI app mein dikhega)</label><input class="inp" id="stUpN" value="${esc(SD.upiName)}" placeholder="${esc(SD.brandName)}"></div>
+    <div class="note-box">Client UPI se pay karega, paisa seedha tumhare account mein aayega. Payment aane ke baad work entry pe <b>Paid</b> tumhe khud mark karna hoga.</div>`;
   if(SD.sec==='conn') pane=`<div class="set-pt"><b>Connection</b><small>${S.demo?'Demo mode chal raha hai':'Google Sheet se connected'}</small></div>
     <div class="field"><label>Apps Script URL</label><input class="inp" id="stU" value="${esc(SD.url)}"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="sheet">${ic('sheet')}Open sheet</button><button class="btn sm" data-act="refresh">${ic('refresh')}Refresh data</button><button class="btn sm danger" data-act="logout">${ic('logout')}Log out</button></div>
@@ -1223,10 +1298,10 @@ function drawSettings(){
   $$('[data-wg]').forEach(i=>i.onchange=()=>{ SD.widgets[i.dataset.wg]=i.checked; });
   $('#stGo').onclick=saveSettings;
 }
-function readSettings(){ [['stPh','contactPhone'],['stEm','contactEmail'],['stIg','instagram'],['stWb','website'],['stNt','pdfNote']].forEach(([i,k])=>{ const el=document.getElementById(i); if(el) SD[k]=el.value.trim(); }); if($('#stB')) SD.brandName=$('#stB').value.trim()||'Vertex Media'; if($('#stO')) SD.ownerName=$('#stO').value.trim()||'Shivam'; if($('#stT')) SD.monthlyTarget=+$('#stT').value||0; if($('#stU')) SD.url=$('#stU').value.trim(); }
+function readSettings(){ if($('#stUpi')) SD.upiId=$('#stUpi').value.trim(); if($('#stUpN')) SD.upiName=$('#stUpN').value.trim(); [['stPh','contactPhone'],['stEm','contactEmail'],['stIg','instagram'],['stWb','website'],['stNt','pdfNote']].forEach(([i,k])=>{ const el=document.getElementById(i); if(el) SD[k]=el.value.trim(); }); if($('#stB')) SD.brandName=$('#stB').value.trim()||'Vertex Media'; if($('#stO')) SD.ownerName=$('#stO').value.trim()||'Shivam'; if($('#stT')) SD.monthlyTarget=+$('#stT').value||0; if($('#stU')) SD.url=$('#stU').value.trim(); }
 async function saveSettings(){
   readSettings(); if(SD.url&&SD.url!==CFG.url){ CFG.url=SD.url; saveCfg(!!(ls&&ls.getItem('vx_pin'))); }
-  if(await run('saveSettings',{brandName:SD.brandName,ownerName:SD.ownerName,accent:SD.accent,monthlyTarget:SD.monthlyTarget,widgets2:JSON.stringify(SD.widgets),contactPhone:SD.contactPhone,contactEmail:SD.contactEmail,instagram:SD.instagram,website:SD.website,pdfNote:SD.pdfNote},'Settings saved')) closeModal();
+  if(await run('saveSettings',{brandName:SD.brandName,ownerName:SD.ownerName,accent:SD.accent,monthlyTarget:SD.monthlyTarget,widgets2:JSON.stringify(SD.widgets),contactPhone:SD.contactPhone,contactEmail:SD.contactEmail,instagram:SD.instagram,website:SD.website,pdfNote:SD.pdfNote,upiId:SD.upiId||'',upiName:SD.upiName||''},'Settings saved')) closeModal();
 }
 
 /* ---------- small menus ---------- */
@@ -1401,7 +1476,11 @@ const A={
   mRole:r=>{ readMember(); MD.role=r; drawMember(); }, mView:v=>{ readMember(); MD.view=v; drawMember(); },
   genPin:()=>{ const a=new Uint32Array(1); (window.crypto||{getRandomValues:x=>{x[0]=Math.random()*1e9}}).getRandomValues(a); $('#tPin').value=String(100000+a[0]%900000); },
   delMember:async n=>{ if(await confirmBox('Remove member?',`${n} ab login nahi kar payega. Unka add kiya hua kaam sheet mein rahega.`,'Remove')) run('deleteMember',{name:n},'Member removed'); },
-  shareJoin:()=>shareJoin()
+  shareJoin:()=>shareJoin(),
+  lkVis:a=>{ const [id,i]=a.split(':'), l=(LKS[id]||[])[+i]; if(!l) return; l.client=!l.client; $('#'+id+'L').innerHTML=lkListHtml(id); toast(l.client?'Ye link client ko dikhega':'Ab sirf team ko dikhega'); },
+  genCPin:()=>{ const a=new Uint32Array(1); (window.crypto||{getRandomValues:x=>{x[0]=Math.random()*1e9}}).getRandomValues(a); $('#pPin').value=String(1000+a[0]%9000); },
+  savePortal:()=>savePortal(false), newPortalLink:async()=>{ if(await confirmBox('Naya link banaye?','Purana link turant band ho jayega. Client ko naya link bhejna padega. PIN wahi rahega.','Naya link')){ await savePortal(true); } },
+  sharePortal:()=>sharePortal(''), copyPortal:()=>{ const po=(clientProfile(CD.old)||{}).portal||{}; try{ navigator.clipboard.writeText(portalLink(po.token)); toast('Link copied'); }catch(e){ toast('Copy nahi hua',true); } }
 };
 document.addEventListener('click',ev=>{
   if(!ev.target.closest('.menu')) $$('.menu').forEach(m=>m.remove());
@@ -1427,6 +1506,119 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); const g=$('#gq'); if(g&&g.offsetParent) g.focus(); else go('work'); }
 });
 
+/* ================= CLIENT PORTAL (client ka view) ================= */
+const PT={token:'',url:'',pin:'',data:null,tab:'all',demo:false};
+async function ptApi(action,data){
+  if(PT.demo) return ptDemo(action,data||{});
+  loading(true);
+  try{
+    const res=await fetch(PT.url,{method:'POST',body:JSON.stringify({portal:PT.token,pin:PT.pin,action,data:data||{}})});
+    const j=await res.json(); if(!j.ok) throw new Error(j.error||'Error');
+    PT.data=j.data; return j.data;
+  } finally { loading(false); }
+}
+function ptBrand(){ const b=(PT.data&&PT.data.brand)||{}; let c={}; try{ c=JSON.parse(lget('vx_pt_brand')||'{}'); }catch(e){} return Object.assign({brandName:'Vertex Media'},c,b); }
+function ptLogo(b){ return b.logo?`<img src="${esc(b.logo)}" alt="">`:`<svg viewBox="0 0 24 24"><path d="M12 4 20.5 19.5h-17z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M16.3 11.9 20.5 19.5h-7.8z" fill="#E01F26"/></svg>`; }
+function ptShow(){ $('#login').hidden=true; $('#app').hidden=true; $('#portal').hidden=false; const b=ptBrand(); if(b.accent) document.documentElement.style.setProperty('--acc',b.accent); document.title=b.brandName+' · Client portal'; }
+function ptLogin(msg){
+  ptShow(); const b=ptBrand();
+  $('#portal').innerHTML=`<div class="login" style="grid-template-columns:1fr"><div class="lg-r"><div class="lg-card glass" style="text-align:center">
+    <div class="logo ${b.logo?'img':''}" style="margin:0 auto 14px;width:60px;height:60px">${ptLogo(b)}</div>
+    <h2>${esc(b.brandName)}</h2><p class="sub">Client portal · apna kaam, files aur bill dekho</p>
+    <div class="field" style="text-align:left;margin-top:18px"><label>PIN</label><input class="inp pin" id="ptPin" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="-webkit-text-security:disc;text-align:center"></div>
+    <label style="display:flex;gap:8px;align-items:center;justify-content:center;font-size:13px;color:var(--muted);font-weight:600;margin-top:4px"><input type="checkbox" id="ptRem" checked> Is device pe yaad rakho</label>
+    <div class="err" id="ptErr">${esc(msg||'')}</div>
+    <button class="btn primary" style="width:100%;padding:12px" id="ptGo">Open my work</button>
+    <p class="sub" style="font-size:12px;margin-top:14px">PIN nahi pata? ${esc(b.brandName)} se maango.</p></div></div></div>`;
+  const go=async()=>{ const pin=$('#ptPin').value.trim(); if(!pin) return $('#ptErr').textContent='PIN daalo'; PT.pin=pin; const btn=$('#ptGo'); btn.disabled=true; btn.textContent='Checking…';
+    try{ await ptApi('portalGet'); try{ if($('#ptRem').checked) ls&&ls.setItem('vx_pt_pin_'+PT.token.slice(0,8),pin); lset('vx_pt_brand',JSON.stringify(PT.data.brand||{})); }catch(e){} ptRender(); }
+    catch(e){ $('#ptErr').textContent=e.message==='Wrong PIN'?'PIN galat hai':e.message; btn.disabled=false; btn.textContent='Open my work'; } };
+  $('#ptGo').onclick=go; $('#ptPin').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); }); setTimeout(()=>$('#ptPin').focus(),60);
+}
+function ptRender(){
+  ptShow(); const D=PT.data, b=D.brand||{}, A=D.amounts, E=[...D.entries].sort((x,y)=>y.date.localeCompare(x.date));
+  const tot=A?E.reduce((s,e)=>s+(+e.amount||0),0):0, paid=A?E.filter(e=>e.payment==='Paid').reduce((s,e)=>s+(+e.amount||0),0):0, due=tot-paid;
+  const review=E.filter(e=>e.status==='Delivered'&&!parseFb(e.feedback)), prog=E.filter(e=>e.status!=='Delivered').length, done=E.filter(e=>e.status==='Delivered').length;
+  const list=E.filter(e=>PT.tab==='all'||(PT.tab==='review'?review.includes(e):PT.tab==='progress'?e.status!=='Delivered':e.status==='Delivered'));
+  const h=new Date().getHours(), hi=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const contact=b.phone?`<a class="btn wa sm" data-stop="1" target="_blank" href="${waLink(b.phone,'Hi, main '+D.client.name+' se. ')}">${ic('wa')}WhatsApp ${esc(b.brandName)}</a>`:'';
+  $('#portal').innerHTML=`<div class="pt-wrap">
+  <header class="pt-top glass"><div class="logo ${b.logo?'img':''}">${ptLogo(b)}</div><div class="grow"><b style="font-size:17px;font-weight:800">${esc(b.brandName)}</b><div class="muted" style="font-size:12px">Client portal</div></div>
+    <button class="ibtn" data-pt="refresh" title="Refresh">${ic('refresh')}</button><button class="ibtn" data-pt="theme" title="Dark / Light">${ic(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${avatar(D.client.name,'',D.client.photo||'')}</header>
+  ${PT.demo?`<div class="banner">${ic('info')}<span class="grow"><b>Preview:</b> client ko aisa dikhega (demo data).</span></div>`:''}
+  <div class="pt-hero"><div><h1>${hi}, ${esc(D.client.name)} 👋</h1><p class="sub">Aapka saara kaam, files${A?' aur payment':''} ek jagah.</p></div><div class="head-actions">${contact}</div></div>
+  <div class="pt-cards">${A?`
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--acc)">${ic('work')}</span>Total work</div><div class="home-cn"><b>${inr(tot)}</b></div><p>${E.length} jobs</p></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--green)">${ic('check')}</span>Paid</div><div class="home-cn"><b>${inr(paid)}</b></div><p>Thank you!</p></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--coral)">${ic('wallet')}</span>Pending</div><div class="home-cn"><b>${inr(due)}</b></div>${due>0&&D.upi?`<button class="btn primary sm" data-pt="pay">${ic('wallet')}Pay now</button>`:`<p>${due>0?'Payment ke liye contact karo':'Sab clear hai 🎉'}</p>`}</div>`:`
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--acc)">${ic('work')}</span>Total jobs</div><div class="home-cn"><b>${E.length}</b></div></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:#C58B2B">${ic('clock')}</span>In progress</div><div class="home-cn"><b>${prog}</b></div></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--green)">${ic('check')}</span>Delivered</div><div class="home-cn"><b>${done}</b></div></div>`}</div>
+  ${review.length?`<div class="banner" style="background:var(--acc-soft);border-color:color-mix(in srgb,var(--acc) 35%,transparent)">${ic('eye')}<span class="grow"><b>${review.length} kaam aapke review ke liye ready hai.</b> Files dekho aur Approve ya Changes bolo.</span><button class="btn sm primary" data-pt="tab" data-arg="review">Review karo</button></div>`:''}
+  <div class="tabs" style="margin-bottom:12px">${[['all','All',E.length],['review','Review',review.length],['progress','In progress',prog],['done','Delivered',done]].map(([k,t,n])=>`<button class="tab ${PT.tab===k?'active':''}" data-pt="tab" data-arg="${k}">${t}<span class="n">${n}</span></button>`).join('')}</div>
+  <div class="pt-grid">${list.length?list.map(e=>ptCard(e,A,review.includes(e))).join(''):'<div class="glass empty" style="grid-column:1/-1">Yahan abhi kuch nahi</div>'}</div>
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;font-size:12px;color:var(--muted)"><span>${esc(b.brandName)}${b.email?' · '+esc(b.email):''}${b.instagram?' · '+esc(b.instagram):''}</span><button class="btn-link" data-pt="logout">Log out</button></div>
+  </div>`;
+}
+function ptCard(e,A,rev){
+  const f=parseFb(e.feedback), files=e.files||[];
+  return `<div class="pw-card glass ${rev?'review':''}"><div class="hd"><div class="grow"><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${dLabel(e.date)}</small></div>${statusPill(e)}</div>
+    ${A?`<div style="display:flex;justify-content:space-between;align-items:center"><span class="amt" style="font-size:16px">${inr(e.amount)}</span><span class="pill dot ${e.payment==='Paid'?'green':'coral'}">${esc(e.payment)}</span></div>`:''}
+    ${files.length?`<div class="lk-list">${files.map(l=>linkChip(l)).join('')}</div>`:(e.status==='Delivered'?'<small class="muted">Files ke liye contact karo</small>':'<small class="muted">Kaam chal raha hai. Ready hote hi files yahan aayengi.</small>')}
+    ${f?fbBox(e):''}
+    ${e.status==='Delivered'&&!f?`<div class="ft"><button class="btn sm primary" data-pt="approve" data-arg="${esc(e.id)}">${ic('check')}Approve</button><button class="btn sm" data-pt="changes" data-arg="${esc(e.id)}">${ic('msg')}Changes chahiye</button></div>`:''}</div>`;
+}
+function ptChanges(id,approve){
+  const e=PT.data.entries.find(x=>x.id===id);
+  modal(mHead(approve?'Approve karein?':'Kya change chahiye?',esc(e.work))+`<div class="m-body"><div class="field"><label>${approve?'Kuch kehna hai? (optional)':'Changes detail mein likho'}</label><textarea class="inp" id="ptC" placeholder="${approve?'e.g. Bahut achha laga!':'e.g. Logo thoda bada karo, text ka colour brand jaisa'}"></textarea></div></div>
+    <div class="m-foot"><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="ptCGo">${approve?'Approve ✓':'Bhejo'}</button></div>`,'narrow');
+  $('#ptCGo').onclick=async()=>{ const comment=$('#ptC').value.trim(); if(!approve&&!comment) return toast('Kya change chahiye, likho',true); const bt=$('#ptCGo'); bt.disabled=true;
+    try{ await ptApi('portalFeedback',{id,decision:approve?'approve':'changes',comment}); closeModal(); toast(approve?'Approved. Thank you!':'Changes bhej diye. Team kaam pe lag jayegi.'); ptRender(); }catch(err){ toast(err.message,true); bt.disabled=false; } };
+}
+function ptPay(){
+  const D=PT.data, E=D.entries, due=E.filter(e=>e.payment!=='Paid').reduce((s,e)=>s+(+e.amount||0),0), u=D.upi;
+  const uri=amt=>`upi://pay?pa=${encodeURIComponent(u.id)}&pn=${encodeURIComponent(u.name||D.brand.brandName)}&am=${amt}&cu=INR&tn=${encodeURIComponent((D.brand.brandName||'')+' - '+D.client.name)}`;
+  modal(mHead('Pay now','UPI se seedha payment')+`<div class="m-body" style="text-align:center">
+    <div class="field" style="text-align:left"><label>Amount (₹)</label><input class="inp" id="ptAmt" inputmode="numeric" value="${Math.round(due)}"></div>
+    <div class="qr" id="ptQr"><span class="muted" style="font-size:12px">QR load ho raha hai…</span></div>
+    <small class="muted">Kisi bhi UPI app se scan karo: GPay, PhonePe, Paytm</small>
+    <a class="btn primary" id="ptUpi" data-stop="1" href="${uri(Math.round(due))}" style="width:100%;padding:12px">${ic('wallet')}UPI app mein kholo</a>
+    <div class="share" style="text-align:left"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><small class="muted">UPI ID</small><div style="font-weight:800">${esc(u.id)}</div></div><button class="btn sm" id="ptCp">Copy</button></div></div>
+    <div class="note-box" style="text-align:left">Payment ke baad screenshot ${D.brand.phone?`<a data-stop="1" target="_blank" href="${waLink(D.brand.phone,'Hi, '+D.client.name+' se payment kiya hai. Screenshot bhej raha hoon.')}"><b>WhatsApp</b></a>`:'WhatsApp'} pe bhej do. ${esc(D.brand.brandName)} confirm karke Paid mark kar dega.</div>
+  </div><div class="m-foot"><span class="grow"></span><button class="btn" data-act="close">Close</button></div>`,'narrow');
+  const draw=()=>{ const amt=Math.max(1,Math.round(+$('#ptAmt').value||0)); $('#ptUpi').href=uri(amt); const q=$('#ptQr'); if(window.QRCode){ q.innerHTML=''; new QRCode(q,{text:uri(amt),width:180,height:180,correctLevel:QRCode.CorrectLevel.M}); } };
+  $('#ptAmt').addEventListener('input',draw);
+  $('#ptCp').onclick=()=>{ try{ navigator.clipboard.writeText(u.id); toast('UPI ID copied'); }catch(e){ toast('Copy nahi hua',true); } };
+  if(window.QRCode) draw(); else { const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; sc.onload=draw; sc.onerror=()=>{ $('#ptQr').innerHTML='<span class="muted" style="font-size:12px">QR nahi bana. "UPI app mein kholo" dabao.</span>'; }; document.head.appendChild(sc); }
+}
+// demo preview for owner
+function ptDemo(action,d){
+  const all=S.data.entries.length?S.data:demoData(); const name=PT.demoClient||'Brew Cafe', D=PT.data;
+  if(action==='portalFeedback'){ const e=D.entries.find(x=>x.id===d.id); e.feedback=(d.decision==='approve'?'Approved | ':'Changes | ')+today()+(d.comment?' | '+d.comment:''); if(d.decision!=='approve') e.status='In progress'; return Promise.resolve(D); }
+  const c=(all.clients||[]).find(x=>low(x.name)===low(name))||{name,photo:''};
+  PT.data={client:{name:c.name,photo:c.photo||''},amounts:true,brand:{brandName:set('brandName'),logo:set('logo'),accent:set('accent'),phone:set('contactPhone')||'9999999999'},upi:{id:set('upiId')||'demo@upi',name:set('upiName')||set('brandName')},
+    entries:all.entries.filter(e=>low(e.client)===low(name)).map(e=>({id:e.id,date:e.date,work:e.work,qty:e.qty,status:e.status,feedback:e.feedback||'',amount:e.amount,payment:e.payment,files:parseLinks(e.links).filter(l=>l.client)}))};
+  return Promise.resolve(PT.data);
+}
+document.addEventListener('click',ev=>{
+  const el=ev.target.closest('[data-pt]'); if(!el||ev.target.closest('[data-stop]')) return; ev.preventDefault();
+  const a=el.dataset.pt, g=el.dataset.arg;
+  if(a==='tab'){ PT.tab=g; ptRender(); }
+  if(a==='refresh') ptApi('portalGet').then(ptRender).catch(e=>toast(e.message,true));
+  if(a==='theme'){ lset('vx_theme',document.documentElement.dataset.theme==='dark'?'light':'dark'); applyTheme(); ptRender(); }
+  if(a==='approve') ptChanges(g,true);
+  if(a==='changes') ptChanges(g,false);
+  if(a==='pay') ptPay();
+  if(a==='logout'){ try{ ls&&ls.removeItem('vx_pt_pin_'+PT.token.slice(0,8)); }catch(e){} PT.pin=''; PT.data=null; ptLogin(); }
+});
+async function ptBoot(token,url){
+  PT.token=token; PT.url=url; applyTheme();
+  try{ lset('vx_pt',JSON.stringify({t:token,u:url})); }catch(e){}
+  const saved=lget('vx_pt_pin_'+token.slice(0,8));
+  if(saved){ PT.pin=saved; try{ await ptApi('portalGet'); return ptRender(); }catch(e){ return ptLogin(e.message==='Wrong PIN'?'':e.message); } }
+  ptLogin();
+}
+
 /* ================= BOOT ================= */
 function showApp(){ $('#login').hidden=true; $('#app').hidden=false; $('#demoBanner').hidden=!S.demo; applyBrand(); render(); }
 function showLogin(msg){ $('#app').hidden=true; $('#login').hidden=false; $('#urlFld').hidden=!!CFG.url; $('#lUrl').value=CFG.url; $('#lErr').textContent=msg||''; setTimeout(()=>$('#lPin').focus(),60); }
@@ -1442,7 +1634,12 @@ function logout(){ try{ ls&&ls.removeItem('vx_pin'); ss&&ss.removeItem('vx_pin')
 $('#lBtn').onclick=login; $('#lPin').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
 $('#demoBtn').onclick=()=>{ S.demo=true; S.data=demoData(); showApp(); };
 (async function boot(){
-  applyTheme(); loadCfg();
+  applyTheme();
+  const pm=location.hash.match(/portal=([a-f0-9]{16,64})\.([A-Za-z0-9_-]+)/i);
+  if(pm){ let u=''; try{ u=decodeURIComponent(escape(atob(pm[2].replace(/-/g,'+').replace(/_/g,'/')))); }catch(e){}
+    if(/DEMO\/exec$/.test(u)){ PT.demo=true; S.data=demoData(); PT.demoClient=(S.data.clients.find(c=>c.portal&&c.portal.token===pm[1])||{}).name||'Brew Cafe'; PT.token=pm[1]; ptShow(); await ptDemo('portalGet'); return ptRender(); }
+    if(/^https:\/\/script\.google(usercontent)?\.com\//.test(u)) return ptBoot(pm[1],u); }
+  loadCfg();
   const jm=location.hash.match(/join=([A-Za-z0-9_-]+)/);
   if(jm){ try{ const u=decodeURIComponent(escape(atob(jm[1].replace(/-/g,'+').replace(/_/g,'/')))); if(/^https:\/\/script\.google(usercontent)?\.com\//.test(u)){ CFG.url=u; lset('vx_url',u); } }catch(e){} history.replaceState(null,'',location.pathname+location.search); }
   try{ S.data.settings=JSON.parse((ls&&ls.getItem('vx_brand'))||'{}')||{}; }catch(e){}
