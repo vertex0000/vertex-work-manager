@@ -119,6 +119,9 @@ button.pill{cursor:pointer}
 .tab.active .n{background:var(--acc);color:#fff}
 .seg{display:flex;background:var(--line);border-radius:10px;padding:3px;gap:2px}
 .segb{flex:1;border:0;background:transparent;padding:8px 10px;border-radius:7px;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg{min-width:0}
+.segb{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.f1{display:grid;grid-template-columns:1fr;gap:12px}
 .segb.active{background:var(--glass-3);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .toolbar{display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:14px;flex-wrap:wrap}
 .toolbar .search{flex:1;min-width:200px}
@@ -891,7 +894,7 @@ function openEntry(id,preset){
     <div class="f3"><div class="field"><label>Qty</label><div class="stepper"><button type="button" data-step="-1">−</button><input id="eQ" inputmode="numeric" value="${e.qty===''?1:esc(e.qty)}"><button type="button" data-step="1">+</button></div></div>
       <div class="field"><label>Rate (₹)</label><input class="inp" id="eR" inputmode="numeric" value="${id?esc(e.rate):''}"><small id="eRh"></small></div>
       <div class="field"><label>Changes (₹)</label><input class="inp" id="eC" inputmode="numeric" value="${esc(e.changes)}" placeholder="0"><small>Amount mein plus</small></div></div>
-    <div class="f2 m1"><div class="field"><label>Status</label><div class="seg" id="eS">${['Pending','In progress','Delivered'].map(s=>`<button type="button" class="segb ${e.status===s?'active':''}" data-v="${s}">${s}</button>`).join('')}</div></div>
+    <div class="f1"><div class="field"><label>Status</label><div class="seg" id="eS">${['Pending','In progress','Delivered'].map(s=>`<button type="button" class="segb ${e.status===s?'active':''}" data-v="${s}">${s}</button>`).join('')}</div></div>
       <div class="field"><label>Payment</label><div class="seg" id="eP">${['Unpaid','Paid'].map(s=>`<button type="button" class="segb ${e.payment===s?'active':''}" data-v="${s}">${s}</button>`).join('')}</div></div></div>
     <div class="field"><label>Notes</label><textarea class="inp" id="eN" placeholder="Optional">${esc(e.notes)}</textarea></div>
     <div class="calc"><div><span id="eCalc"></span><div id="eSave" class="save-badge"></div></div><b id="eTot"></b></div>
