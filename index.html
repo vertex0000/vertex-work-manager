@@ -859,7 +859,7 @@ function vPlans(){
   const feat=P.map((r,k)=>k).filter(k=>k>0&&k!==pi&&k!==ai&&k!==bi&&k<11);
   const inp=(r,c)=>`<input data-pr="${r}" data-pc="${c}" value="${esc(P[r][c])}">`;
   return pageH('Packages','Plans',E?'Text badlo, phir Save dabao. Price "Services & Prices" se badalta hai.':'Clients ko dikhane ke liye 3 monthly plans.',
-    E?`<button class="btn" data-act="planEdit" data-arg="0">Cancel</button><button class="btn primary" data-act="savePlans">Save plans</button>`:`<button class="btn" data-act="pdf">${ic('print')}Export PDF</button><button class="btn" data-act="go" data-arg="services">${ic('tag')}Edit prices</button><button class="btn primary" data-act="planEdit" data-arg="1">${ic('edit')}Edit plans</button>`)+
+    E?`<button class="btn" data-act="planEdit" data-arg="0">Cancel</button><button class="btn primary" data-act="savePlans">Save plans</button>`:`<button class="btn" data-act="go" data-arg="services">${ic('tag')}Edit prices</button><button class="btn primary" data-act="planEdit" data-arg="1">${ic('edit')}Edit plans</button>`)+
   `<div class="pgrid">${names.map((n,i)=>`<div class="plan glass ${i===1?'hot':''}">
     <div class="nm">${E?inp(0,i+1):esc(n)}${!E&&i===1?' · Popular':''}</div>
     <div class="pr">${esc(pi>=0?P[pi][i+1]:'')}<small> /month</small></div>
@@ -1055,7 +1055,7 @@ function dueList(){
 function moreMenu(){
   modal(mHead('More')+`<div class="m-body"><div class="home-list">
     <div class="home-li" data-act="go" data-arg="plans">${ic('box')}<div class="grow"><b>Plans</b></div></div>
-    <div class="home-li" data-act="pdf">${ic('print')}<div class="grow"><b>Rate card PDF</b><small>Saari services + plans print karo</small></div></div>
+    <div class="home-li" data-act="pdf">${ic('print')}<div class="grow"><b>Services price list PDF</b><small>Sirf services, plans nahi</small></div></div>
     <div class="home-li" data-act="settings" data-arg="brand">${ic('gear')}<div class="grow"><b>Settings</b><small>Logo, naam, colour, target</small></div></div>
     <div class="home-li" data-act="sheet">${ic('sheet')}<div class="grow"><b>Open Google Sheet</b></div></div>
     <div class="home-li" data-act="theme">${ic(document.documentElement.dataset.theme==='dark'?'sun':'moon')}<div class="grow"><b>Dark / Light</b></div></div>
@@ -1067,30 +1067,29 @@ function moreMenu(){
 /* ================= RATE CARD PDF ================= */
 let PD=null;
 function openPdf(client){
-  PD={client:client||'',plans:true,details:true,hideCustom:false};
+  PD={client:client||'',plans:false,details:true,hideCustom:false};
   const names=clientList().map(c=>c.name).sort();
-  modal(mHead('Rate card PDF','Saari services aur prices ek page pe, print ya PDF save karo')+`<div class="m-body">
+  modal(mHead('Services price list PDF','Sirf services ke price. Monthly plans shamil nahi.')+`<div class="m-body">
     <div class="field"><label>Kiske liye?</label><select class="inp" id="pdC"><option value="">Sabke liye (standard prices)</option>${names.map(n=>`<option ${low(n)===low(PD.client)?'selected':''}>${esc(n)}</option>`).join('')}</select><small>Client chunoge to uske special price lagenge</small></div>
     <div><div class="tg"><span>Service details dikhao</span><label class="sw"><input type="checkbox" id="pdD" checked><i></i></label></div>
-    <div class="tg"><span>Monthly plans bhi dikhao</span><label class="sw"><input type="checkbox" id="pdP" checked><i></i></label></div>
     <div class="tg"><span>"Custom" price wali services chhupao</span><label class="sw"><input type="checkbox" id="pdH"><i></i></label></div></div>
     <div class="note-box">Print window khulegi. Wahan <b>Destination: Save as PDF</b> chuno. Phone pe: Share → Print → Save as PDF.</div>
   </div><div class="m-foot"><button class="btn" data-act="settings" data-arg="brand">${ic('gear')}Contact details</button><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="pdGo">${ic('print')}Create PDF</button></div>`,'narrow');
-  $('#pdGo').onclick=()=>{ PD.client=$('#pdC').value; PD.details=$('#pdD').checked; PD.plans=$('#pdP').checked; PD.hideCustom=$('#pdH').checked; printRateCard(); };
+  $('#pdGo').onclick=()=>{ PD.client=$('#pdC').value; PD.details=$('#pdD').checked; PD.plans=false; PD.hideCustom=$('#pdH').checked; printRateCard(); };
 }
 function rateCardHtml(o){
   const acc=set('accent'), brand=set('brandName'), logo=set('logo'), c=o.client, now=new Date();
   const clean=d=>String(d||'').replace(/^\s*\d+\s*(\/-)?\s*/,'').trim();
   const rows=S.data.services.map(s=>{ const r=c?effRate(c,s.name):{rate:s.rate,src:'standard'}; return {name:s.name,det:clean(s.details),std:s.rate,rate:r.rate,sp:c&&r.rate!=null&&s.rate!=null&&r.rate<s.rate}; })
     .filter(r=>!(o.hideCustom&&r.rate==null));
-  const isPlan=n=>/plan$/i.test(n), svc=rows.filter(r=>!isPlan(r.name)), planRows=rows.filter(r=>isPlan(r.name));
+  const isPlan=n=>/plan$/i.test(n), svc=rows.filter(r=>!isPlan(r.name)), planRows=[];
   const P=S.data.plans||[], pn=P[0]?P[0].slice(1):[], find=l=>P.findIndex(r=>low(r[0]).startsWith(l)), pi=find('price per month'), bi=find('best for'), ai=find('3 months');
   const feat=P.map((r,k)=>k).filter(k=>k>0&&k!==pi&&k!==ai&&k!==bi&&k<11&&P[k][0]);
   const planPrice=i=>{ const r=planRows.find(x=>low(x.name).startsWith(low(pn[i]))); return r&&r.rate!=null?r:null; };
   const money=r=>r.rate==null?'<span class="cu">On request</span>':(r.sp?`<s>${inr(r.std)}</s>`:'')+inr(r.rate);
   const contact=[set('contactPhone')&&'📞 '+esc(set('contactPhone')),set('contactEmail')&&'✉ '+esc(set('contactEmail')),set('instagram')&&'IG '+esc(set('instagram')),set('website')&&esc(set('website'))].filter(Boolean).join('<span class="sep">·</span>');
   const tri=`<svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 4 20.5 19.5h-17z" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/><path d="M16.3 11.9 20.5 19.5h-7.8z" fill="#E01F26"/></svg>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(brand)} Rate Card${c?' - '+esc(c):''}</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(brand)} Services Price List${c?' - '+esc(c):''}</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 @page{size:A4;margin:11mm 12mm}
@@ -1133,7 +1132,7 @@ s{color:#9AA1AE;font-weight:500;font-size:11.5px;margin-right:6px}
 <div class="bar"><button class="p" onclick="print()">Print / Save as PDF</button><button class="x" onclick="close()">Close</button></div>
 <div class="page">
   <div class="hd"><div class="lg ${logo?'img':''}">${logo?`<img src="${esc(logo)}" alt="">`:tri}</div>
-    <div><div class="t">Rate card</div><h1>${esc(brand)}</h1></div>
+    <div><div class="t">Services price list</div><h1>${esc(brand)}</h1></div>
     <div class="r">${MON[now.getMonth()]} ${now.getFullYear()}<br>Prices in INR (₹)</div></div>
   ${c?`<div class="for">Prepared for <b>${esc(c)}</b>${discountOf(c)?` · ${discountOf(c)}% special discount applied`:''}${rows.some(r=>r.sp)?' · special prices shown':''}</div>`:''}
   ${svc.length?`<h2>Services</h2><table><thead><tr><th>#</th><th>Service</th><th style="text-align:right">Price</th></tr></thead><tbody>
@@ -1142,7 +1141,7 @@ s{color:#9AA1AE;font-weight:500;font-size:11.5px;margin-right:6px}
   ${o.plans&&pn.length?`<div class="keep"><h2>Monthly plans</h2><div class="plans">${pn.map((n,i)=>{ const pr=planPrice(i); return `<div class="pl ${i===1?'hot':''}"><div class="nm">${esc(n)}</div>
     <div class="pp">${pr?((pr.sp?`<s>${inr(pr.std)}</s>`:'')+inr(pr.rate)):esc(pi>=0?P[pi][i+1]:'')}<small> /month</small></div><div class="bf">${esc(bi>=0?P[bi][i+1]:'')}</div>
     <ul>${feat.map(k=>`<li><span>${esc(P[k][0])}</span><b>${esc(P[k][i+1])}</b></li>`).join('')}</ul></div>`; }).join('')}</div></div>`
-  :(planRows.length?`<h2>Monthly plans</h2><table><tbody>${planRows.map(r=>`<tr><td><b>${esc(r.name)}</b>${r.sp?'<span class="sp">Special</span>':''}</td><td class="pr">${money(r)}<span class="cu"> /month</span></td></tr>`).join('')}</tbody></table>`:'')}
+  :(o.plans&&planRows.length?`<h2>Monthly plans</h2><table><tbody>${planRows.map(r=>`<tr><td><b>${esc(r.name)}</b>${r.sp?'<span class="sp">Special</span>':''}</td><td class="pr">${money(r)}<span class="cu"> /month</span></td></tr>`).join('')}</tbody></table>`:'')}
   <div class="ft"><div>${esc(set('pdfNote'))}</div><div class="c">${contact||esc(set('ownerName'))+' · '+esc(brand)}</div></div>
 </div>
 <script>document.fonts&&document.fonts.ready.then(()=>setTimeout(()=>print(),350));<\/script>
