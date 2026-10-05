@@ -1,13 +1,21 @@
 /**
  * Vertex Work Manager: Google Apps Script backend
  * Sheet ke andar: Extensions > Apps Script > is file ko paste karo.
- * Project Settings > Script properties > PIN = apna PIN (jaise 4747)
+ * Project Settings > Script properties > PIN = apna PIN
+ *
+ * Rate kaise decide hota hai (har nayi entry pe):
+ *   1. Client ka special price (Client Prices tab)  -> agar set hai
+ *   2. Client ka Discount % (Clients tab)           -> standard price pe % kam
+ *   3. Standard price (Price List tab)              -> baaki sab clients
+ * Entry ka rate "Saved rate" column mein lock ho jata hai, taaki price
+ * badalne se purana hisaab na badle.
  */
 
 const MASTER = 'Master';
 const PRICES = 'Price List';
 const PLANS = 'Plans';
 const CLIENTS = 'Clients';
+const CLIENT_PRICES = 'Client Prices';
 const SETTINGS = 'Settings';
 const CELL_LIMIT = 49000; // Google Sheet cell mein max ~50,000 characters
 
@@ -32,7 +40,7 @@ function doPost(e) {
 
   const pin = PropertiesService.getScriptProperties().getProperty('PIN');
   if (!pin) return json({ ok: false, error: 'PIN not set. Script properties mein PIN add karo.' });
-  if (String(req.pin) !== String(pin)) return json({ ok: false, error: 'Wrong PIN' });
+  if (String(req.pin).trim() !== String(pin).trim()) return json({ ok: false, error: 'Wrong PIN' });
 
   const lock = LockService.getScriptLock();
   try {
@@ -73,7 +81,9 @@ function tab(name) {
   return s;
 }
 function num(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
-function blankOrNum(v) { return (v === '' || v === null || v === undefined) ? '' : num(v); }
+function isNum(v) { return v !== '' && v !== null && v !== undefined && !isNaN(Number(v)); }
+function blankOrNum(v) { return isNum(v) ? Number(v) : ''; }
+function low(s) { return String(s || '').trim().toLowerCase(); }
 function tz() { return Session.getScriptTimeZone(); }
 
 function toDate(s) {
@@ -101,6 +111,25 @@ function lastRowIn(sheet, col) {
   return 1;
 }
 
+function ensureTab(name, headers) {
+  let s = book().getSheetByName(name);
+  if (!s) {
+    s = book().insertSheet(name);
+    s.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setFontWeight('bold').setBackground('#141414').setFontColor('#ffffff');
+    s.setFrozenRows(1);
+  }
+  if (s.getMaxColumns() < headers.length) s.insertColumnsAfter(s.getMaxColumns(), headers.length - s.getMaxColumns());
+  const head = s.getRange(1, 1, 1, headers.length).getValues()[0];
+  headers.forEach((h, i) => { if (!head[i]) s.getRange(1, i + 1).setValue(h); });
+  return s;
+}
+function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes', 'Discount %']); }
+function cpTab() { return ensureTab(CLIENT_PRICES, ['Client name', 'Service', 'Special price (₹)']); }
+function settingsTab() { return ensureTab(SETTINGS, ['Setting', 'Value']); }
+
+/* ---------- prices ---------- */
+
 function priceMap() {
   const s = tab(PRICES);
   const last = lastRowIn(s, 3);
@@ -110,6 +139,32 @@ function priceMap() {
     if (r[0] !== '') m[String(r[0]).trim()] = (r[1] === '' ? '' : num(r[1]));
   });
   return m;
+}
+
+function getClientPrices() {
+  const s = cpTab();
+  const last = lastRowIn(s, 1);
+  if (last < 2) return [];
+  return s.getRange(2, 1, last - 1, 3).getValues()
+    .filter(r => r[0] !== '' && r[1] !== '' && isNum(r[2]))
+    .map(r => ({ client: String(r[0]).trim(), service: String(r[1]).trim(), price: num(r[2]) }));
+}
+
+function clientDiscount(name) {
+  const row = findClientRow(name);
+  if (row < 0) return 0;
+  const v = clientsTab().getRange(row, 5).getValue();
+  return Math.max(0, Math.min(100, num(v)));
+}
+
+// Is client ke liye is service ka rate
+function effectiveRate(client, work) {
+  const sp = getClientPrices().find(p => low(p.client) === low(client) && p.service === String(work).trim());
+  if (sp) return sp.price;
+  const std = priceMap()[String(work).trim()];
+  if (std === undefined || std === '') return '';
+  const disc = clientDiscount(client);
+  return disc > 0 ? Math.round(std * (1 - disc / 100)) : std;
 }
 
 // Old entries keep their old price: save current rate on rows that don't have one yet
@@ -127,9 +182,7 @@ function lockRates(workName, rate) {
       changed = true;
     }
   });
-  if (changed) {
-    s.getRange(2, C.saved, last - 1, 1).setValues(vals.map(r => [r[savedCol]]));
-  }
+  if (changed) s.getRange(2, C.saved, last - 1, 1).setValues(vals.map(r => [r[savedCol]]));
 }
 
 /* ---------- read ---------- */
@@ -173,40 +226,166 @@ function getAll() {
   const pLast = lastRowIn(p, 3);
   const services = pLast < 2 ? [] : p.getRange(2, 1, pLast - 1, 4).getValues()
     .filter(r => r[2] !== '')
-    .map(r => ({
-      name: String(r[2]).trim(),
-      details: String(r[1] || '').trim(),
-      rate: r[3] === '' ? null : num(r[3])
-    }));
+    .map(r => ({ name: String(r[2]).trim(), details: String(r[1] || '').trim(), rate: r[3] === '' ? null : num(r[3]) }));
 
   let plans = [];
   try { plans = tab(PLANS).getRange('A3:D15').getDisplayValues(); } catch (e) { plans = []; }
 
-  return { entries, services, plans, clients: getClients(), settings: getSettings(), sheetUrl: book().getUrl() };
+  return {
+    entries, services, plans,
+    clients: getClients(),
+    clientPrices: getClientPrices(),
+    settings: getSettings(),
+    sheetUrl: book().getUrl()
+  };
 }
 
-/* ---------- clients (photo, phone, notes) ---------- */
+/* ---------- entries ---------- */
 
-function ensureTab(name, headers) {
-  let s = book().getSheetByName(name);
-  if (!s) {
-    s = book().insertSheet(name);
-    s.getRange(1, 1, 1, headers.length).setValues([headers])
-      .setFontWeight('bold').setBackground('#141414').setFontColor('#ffffff');
-    s.setFrozenRows(1);
+function writeEntry(row, d, savedRate) {
+  const s = tab(MASTER);
+  s.getRange(row, C.date, 1, 6).setValues([[
+    toDate(d.date),
+    String(d.client || '').trim(),
+    d.phone ? "'" + String(d.phone).trim() : '',
+    d.work || '',
+    blankOrNum(d.qty),
+    blankOrNum(d.changes)
+  ]]);
+  s.getRange(row, C.status, 1, 3).setValues([[d.status || 'Pending', d.payment || 'Unpaid', d.notes || '']]);
+  s.getRange(row, C.saved).setValue(savedRate === undefined || savedRate === null ? '' : savedRate);
+}
+
+function addEntry(d) {
+  if (!d.client) throw new Error('Client name zaroori hai');
+  if (!d.work) throw new Error('Work type chuno');
+  const s = tab(MASTER);
+  const row = lastRowIn(s, C.client) + 1;
+  if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 100);
+  const rate = isNum(d.rate) ? Number(d.rate) : effectiveRate(d.client, d.work);
+  writeEntry(row, d, rate);
+  s.getRange(row, C.id).setValue(newId());
+}
+
+function findEntryRow(id) {
+  const s = tab(MASTER);
+  const last = lastRowIn(s, C.client);
+  if (last >= 2) {
+    const ids = s.getRange(2, C.id, last - 1, 1).getValues();
+    for (let i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return i + 2;
   }
-  return s;
+  throw new Error('Entry nahi mili. Refresh karke dobara try karo.');
 }
-function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes']); }
-function settingsTab() { return ensureTab(SETTINGS, ['Setting', 'Value']); }
+
+function updateEntry(d) {
+  const s = tab(MASTER);
+  const row = findEntryRow(d.id);
+  const oldWork = String(s.getRange(row, C.work).getValue()).trim();
+  const oldClient = String(s.getRange(row, C.client).getValue()).trim();
+  let saved = s.getRange(row, C.saved).getValue();
+  if (isNum(d.rate)) saved = Number(d.rate);
+  else if (oldWork !== d.work || low(oldClient) !== low(d.client)) saved = effectiveRate(d.client, d.work);
+  writeEntry(row, d, saved);
+}
+
+function deleteEntry(id) {
+  tab(MASTER).deleteRow(findEntryRow(id));
+}
+
+/* ---------- services (Price List) ---------- */
+
+function findServiceRow(name) {
+  const s = tab(PRICES);
+  const last = lastRowIn(s, 3);
+  if (last >= 2) {
+    const names = s.getRange(2, 3, last - 1, 1).getValues();
+    for (let i = 0; i < names.length; i++) if (low(names[i][0]) === low(name)) return i + 2;
+  }
+  return -1;
+}
+
+function rateFormula(row) {
+  return '=IFERROR(VALUE(REGEXEXTRACT(TO_TEXT(B' + row + '),"\\d+")),"")';
+}
+
+function addService(d) {
+  const name = String(d.name || '').trim();
+  if (!name) throw new Error('Service name zaroori hai');
+  if (findServiceRow(name) > 0) throw new Error('Ye service pehle se hai');
+  const price = num(d.price);
+  const s = tab(PRICES);
+  const row = lastRowIn(s, 3) + 1;
+  if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 20);
+  s.getRange(row, 1, 1, 3).setValues([[name, price + '/- ' + String(d.details || '').trim(), name]]);
+  s.getRange(row, 4).setFormula(rateFormula(row));
+  s.getRange(2, 1, 1, 4).copyTo(s.getRange(row, 1, 1, 4), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+}
+
+function renameInColumn(sheet, col, oldName, newName) {
+  const last = lastRowIn(sheet, col);
+  if (last < 2) return;
+  const rng = sheet.getRange(2, col, last - 1, 1);
+  rng.setValues(rng.getValues().map(r => [String(r[0]).trim() === oldName ? newName : r[0]]));
+}
+
+function updateService(d) {
+  const oldName = String(d.oldName || '').trim();
+  const name = String(d.name || '').trim();
+  if (!name) throw new Error('Service name zaroori hai');
+  const s = tab(PRICES);
+  const row = findServiceRow(oldName);
+  if (row < 0) throw new Error('Service nahi mili. Refresh karo.');
+  if (low(name) !== low(oldName) && findServiceRow(name) > 0) throw new Error('Is naam ki service pehle se hai');
+
+  lockRates(oldName, priceMap()[oldName]);
+
+  const oldA = String(s.getRange(row, 1).getValue()).trim();
+  const oldB = String(s.getRange(row, 2).getValue());
+  const price = num(d.price);
+  const details = String(d.details === undefined ? oldB : d.details);
+  let newB;
+  if (details.trim() === oldB.trim() && /\d+/.test(oldB)) newB = oldB.replace(/\d+/, String(price));
+  else newB = price + '/- ' + details.replace(/^\s*\d+\s*(\/-)?\s*/, '').trim();
+
+  s.getRange(row, 2).setValue(newB);
+  s.getRange(row, 3).setValue(name);
+  if (oldA === oldName) s.getRange(row, 1).setValue(name);
+  s.getRange(row, 4).setFormula(rateFormula(row));
+
+  if (name !== oldName) {
+    renameInColumn(tab(MASTER), C.work, oldName, name);
+    renameInColumn(cpTab(), 2, oldName, name);
+  }
+}
+
+function deleteRowsWhere(sheet, test) {
+  const last = lastRowIn(sheet, 1);
+  if (last < 2) return;
+  const vals = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+  for (let i = vals.length - 1; i >= 0; i--) if (test(vals[i])) sheet.deleteRow(i + 2);
+}
+
+function deleteService(name) {
+  const row = findServiceRow(name);
+  if (row < 0) throw new Error('Service nahi mili');
+  const n = String(name).trim();
+  lockRates(n, priceMap()[n]);
+  tab(PRICES).deleteRow(row);
+  deleteRowsWhere(cpTab(), r => String(r[1]).trim() === n);
+}
+
+/* ---------- clients (photo, phone, notes, discount, special prices) ---------- */
 
 function getClients() {
   const s = clientsTab();
   const last = lastRowIn(s, 1);
   if (last < 2) return [];
-  return s.getRange(2, 1, last - 1, 4).getValues()
+  return s.getRange(2, 1, last - 1, 5).getValues()
     .filter(r => r[0] !== '')
-    .map(r => ({ name: String(r[0]).trim(), phone: String(r[1] || ''), photo: String(r[2] || ''), notes: String(r[3] || '') }));
+    .map(r => ({
+      name: String(r[0]).trim(), phone: String(r[1] || ''), photo: String(r[2] || ''),
+      notes: String(r[3] || ''), discount: num(r[4])
+    }));
 }
 
 function findClientRow(name) {
@@ -214,9 +393,7 @@ function findClientRow(name) {
   const last = lastRowIn(s, 1);
   if (last >= 2) {
     const names = s.getRange(2, 1, last - 1, 1).getValues();
-    for (let i = 0; i < names.length; i++) {
-      if (String(names[i][0]).trim().toLowerCase() === String(name).trim().toLowerCase()) return i + 2;
-    }
+    for (let i = 0; i < names.length; i++) if (low(names[i][0]) === low(name)) return i + 2;
   }
   return -1;
 }
@@ -227,28 +404,38 @@ function saveClient(d) {
   const oldName = String(d.oldName || name).trim();
   if (d.photo && String(d.photo).length > CELL_LIMIT) throw new Error('Photo bahut badi hai, choti photo try karo');
   const s = clientsTab();
-  if (name.toLowerCase() !== oldName.toLowerCase() && findClientRow(name) > 0) throw new Error('Is naam ka client pehle se hai');
+  if (low(name) !== low(oldName) && findClientRow(name) > 0) throw new Error('Is naam ka client pehle se hai');
 
   let row = findClientRow(oldName);
   if (row < 0) {
     row = lastRowIn(s, 1) + 1;
     if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 50);
   }
-  const cur = s.getRange(row, 1, 1, 4).getValues()[0];
-  s.getRange(row, 1, 1, 4).setValues([[
+  const cur = s.getRange(row, 1, 1, 5).getValues()[0];
+  s.getRange(row, 1, 1, 5).setValues([[
     name,
     d.phone !== undefined ? (d.phone ? "'" + String(d.phone).trim() : '') : cur[1],
     d.photo !== undefined && d.photo !== null ? d.photo : cur[2],
-    d.notes !== undefined ? d.notes : cur[3]
+    d.notes !== undefined ? d.notes : cur[3],
+    d.discount !== undefined ? (isNum(d.discount) && Number(d.discount) > 0 ? Math.min(100, Number(d.discount)) : '') : cur[4]
   ]]);
 
-  // naam badla to Master mein bhi badlo
+  const cp = cpTab();
   if (name !== oldName) {
-    const m = tab(MASTER);
-    const last = lastRowIn(m, C.client);
-    if (last >= 2) {
-      const rng = m.getRange(2, C.client, last - 1, 1);
-      rng.setValues(rng.getValues().map(r => [String(r[0]).trim() === oldName ? name : r[0]]));
+    renameInColumn(tab(MASTER), C.client, oldName, name);
+    renameInColumn(cp, 1, oldName, name);
+  }
+
+  // special prices: website se puri list aati hai, purani hata ke nayi likho
+  if (Array.isArray(d.prices)) {
+    deleteRowsWhere(cp, r => low(r[0]) === low(name));
+    const rows = d.prices
+      .filter(p => p && p.service && isNum(p.price))
+      .map(p => [name, String(p.service).trim(), Number(p.price)]);
+    if (rows.length) {
+      const start = lastRowIn(cp, 1) + 1;
+      if (start + rows.length > cp.getMaxRows()) cp.insertRowsAfter(cp.getMaxRows(), rows.length + 50);
+      cp.getRange(start, 1, rows.length, 3).setValues(rows);
     }
   }
 }
@@ -256,6 +443,7 @@ function saveClient(d) {
 function deleteClient(name) {
   const row = findClientRow(name);
   if (row > 0) clientsTab().deleteRow(row);
+  deleteRowsWhere(cpTab(), r => low(r[0]) === low(name));
 }
 
 /* ---------- settings (brand, logo, colour, target) ---------- */
@@ -293,132 +481,4 @@ function savePlans(rows) {
   const data = rows.slice(0, 11).map(r => [0, 1, 2, 3].map(i => (r[i] === undefined ? '' : String(r[i]))));
   while (data.length < 11) data.push(['', '', '', '']);
   tab(PLANS).getRange(3, 1, 11, 4).setValues(data);
-}
-
-/* ---------- entries ---------- */
-
-function writeEntry(row, d, savedRate) {
-  const s = tab(MASTER);
-  s.getRange(row, C.date, 1, 6).setValues([[
-    toDate(d.date),
-    String(d.client || '').trim(),
-    d.phone ? "'" + String(d.phone).trim() : '',
-    d.work || '',
-    blankOrNum(d.qty),
-    blankOrNum(d.changes)
-  ]]);
-  s.getRange(row, C.status, 1, 3).setValues([[d.status || 'Pending', d.payment || 'Unpaid', d.notes || '']]);
-  s.getRange(row, C.saved).setValue(savedRate === undefined || savedRate === null ? '' : savedRate);
-}
-
-function addEntry(d) {
-  if (!d.client) throw new Error('Client name zaroori hai');
-  if (!d.work) throw new Error('Work type chuno');
-  const s = tab(MASTER);
-  let row = lastRowIn(s, C.client) + 1;
-  if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 100);
-  const rate = priceMap()[d.work];
-  writeEntry(row, d, rate === undefined ? '' : rate);
-  s.getRange(row, C.id).setValue(newId());
-}
-
-function findEntryRow(id) {
-  const s = tab(MASTER);
-  const last = lastRowIn(s, C.client);
-  if (last >= 2) {
-    const ids = s.getRange(2, C.id, last - 1, 1).getValues();
-    for (let i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return i + 2;
-  }
-  throw new Error('Entry nahi mili. Refresh karke dobara try karo.');
-}
-
-function updateEntry(d) {
-  const s = tab(MASTER);
-  const row = findEntryRow(d.id);
-  const oldWork = String(s.getRange(row, C.work).getValue()).trim();
-  let saved = s.getRange(row, C.saved).getValue();
-  if (oldWork !== d.work) {
-    const rate = priceMap()[d.work];
-    saved = rate === undefined ? '' : rate;
-  }
-  writeEntry(row, d, saved);
-}
-
-function deleteEntry(id) {
-  tab(MASTER).deleteRow(findEntryRow(id));
-}
-
-/* ---------- services (Price List) ---------- */
-
-function findServiceRow(name) {
-  const s = tab(PRICES);
-  const last = lastRowIn(s, 3);
-  if (last >= 2) {
-    const names = s.getRange(2, 3, last - 1, 1).getValues();
-    for (let i = 0; i < names.length; i++) {
-      if (String(names[i][0]).trim().toLowerCase() === String(name).trim().toLowerCase()) return i + 2;
-    }
-  }
-  return -1;
-}
-
-function rateFormula(row) {
-  return '=IFERROR(VALUE(REGEXEXTRACT(TO_TEXT(B' + row + '),"\\d+")),"")';
-}
-
-function addService(d) {
-  const name = String(d.name || '').trim();
-  if (!name) throw new Error('Service name zaroori hai');
-  if (findServiceRow(name) > 0) throw new Error('Ye service pehle se hai');
-  const price = num(d.price);
-  const s = tab(PRICES);
-  const row = lastRowIn(s, 3) + 1;
-  if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 20);
-  s.getRange(row, 1, 1, 3).setValues([[name, price + '/- ' + String(d.details || '').trim(), name]]);
-  s.getRange(row, 4).setFormula(rateFormula(row));
-  s.getRange(2, 1, 1, 4).copyTo(s.getRange(row, 1, 1, 4), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-}
-
-function updateService(d) {
-  const oldName = String(d.oldName || '').trim();
-  const name = String(d.name || '').trim();
-  if (!name) throw new Error('Service name zaroori hai');
-  const s = tab(PRICES);
-  const row = findServiceRow(oldName);
-  if (row < 0) throw new Error('Service nahi mili. Refresh karo.');
-  if (name.toLowerCase() !== oldName.toLowerCase() && findServiceRow(name) > 0) throw new Error('Is naam ki service pehle se hai');
-
-  // purani entries ka rate lock karo, taaki price badalne se purana hisaab na badle
-  lockRates(oldName, priceMap()[oldName]);
-
-  const oldA = String(s.getRange(row, 1).getValue()).trim();
-  const oldB = String(s.getRange(row, 2).getValue());
-  const price = num(d.price);
-  const details = String(d.details === undefined ? oldB : d.details);
-  let newB;
-  if (details.trim() === oldB.trim() && /\d+/.test(oldB)) newB = oldB.replace(/\d+/, String(price));
-  else newB = price + '/- ' + details.replace(/^\s*\d+\s*(\/-)?\s*/, '').trim();
-
-  s.getRange(row, 2).setValue(newB);
-  s.getRange(row, 3).setValue(name);
-  if (oldA === oldName) s.getRange(row, 1).setValue(name);
-  s.getRange(row, 4).setFormula(rateFormula(row));
-
-  // naam badla to Master mein bhi badlo
-  if (name !== oldName) {
-    const m = tab(MASTER);
-    const last = lastRowIn(m, C.client);
-    if (last >= 2) {
-      const rng = m.getRange(2, C.work, last - 1, 1);
-      const vals = rng.getValues().map(r => [String(r[0]).trim() === oldName ? name : r[0]]);
-      rng.setValues(vals);
-    }
-  }
-}
-
-function deleteService(name) {
-  const row = findServiceRow(name);
-  if (row < 0) throw new Error('Service nahi mili');
-  lockRates(String(name).trim(), priceMap()[String(name).trim()]);
-  tab(PRICES).deleteRow(row);
 }
