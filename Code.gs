@@ -9,6 +9,13 @@
  *   3. Standard price (Price List tab)              -> baaki sab clients
  * Entry ka rate "Saved rate" column mein lock ho jata hai, taaki price
  * badalne se purana hisaab na badle.
+ *
+ * Login (sirf PIN):
+ *   Owner  -> Script properties > PIN
+ *   Team   -> website ke Team page se banta hai. Team tab mein PIN hash ho ke
+ *             save hota hai (asli PIN kahin nahi dikhta). Har member ka PIN alag.
+ *
+ * Files & links: Master (col P) aur Clients (col F) mein, ek line = "Label | https://..."
  */
 
 const MASTER = 'Master';
@@ -17,14 +24,20 @@ const PLANS = 'Plans';
 const CLIENTS = 'Clients';
 const CLIENT_PRICES = 'Client Prices';
 const SETTINGS = 'Settings';
+const TEAM = 'Team';
+const MAX_FAILS = 15;      // itne galat PIN ke baad 10 minute lock
 const CELL_LIMIT = 49000; // Google Sheet cell mein max ~50,000 characters
 
 // Master tab columns (1-based)
 const C = {
   date: 1, client: 2, phone: 3, work: 4, qty: 5, changes: 6,
   rate: 7, amount: 8, status: 9, payment: 10, notes: 11,
-  month: 12, id: 13, saved: 14
+  month: 12, id: 13, saved: 14, by: 15, links: 16
 };
+
+// Kaun kya kar sakta hai
+const OWNER_ONLY = ['saveMember', 'deleteMember', 'saveSettings'];
+const MEMBER_OK = ['getAll', 'addEntry', 'updateEntry', 'deleteEntry', 'saveClient'];
 
 function doGet() {
   return json({ ok: true, msg: 'Vertex API is running' });
@@ -38,30 +51,35 @@ function doPost(e) {
     return json({ ok: false, error: 'Bad request' });
   }
 
-  const pin = PropertiesService.getScriptProperties().getProperty('PIN');
-  if (!pin) return json({ ok: false, error: 'PIN not set. Script properties mein PIN add karo.' });
-  if (String(req.pin).trim() !== String(pin).trim()) return json({ ok: false, error: 'Wrong PIN' });
+  let me;
+  try { me = auth(req.pin); } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
+
+  const action = String(req.action || '');
+  if (me.role !== 'owner' && OWNER_ONLY.indexOf(action) >= 0) return json({ ok: false, error: 'Ye sirf owner kar sakta hai' });
+  if (me.role === 'member' && MEMBER_OK.indexOf(action) < 0) return json({ ok: false, error: 'Is kaam ki permission nahi hai' });
 
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
     const d = req.data || {};
-    switch (req.action) {
+    switch (action) {
       case 'getAll': break;
-      case 'addEntry': addEntry(d); break;
-      case 'updateEntry': updateEntry(d); break;
-      case 'deleteEntry': deleteEntry(d.id); break;
+      case 'addEntry': addEntry(d, me); break;
+      case 'updateEntry': updateEntry(d, me); break;
+      case 'deleteEntry': deleteEntry(d.id, me); break;
       case 'addService': addService(d); break;
       case 'updateService': updateService(d); break;
       case 'deleteService': deleteService(d.name); break;
-      case 'saveClient': saveClient(d); break;
+      case 'saveClient': saveClient(d, me); break;
+      case 'saveMember': saveMember(d); break;
+      case 'deleteMember': deleteMember(d.name); break;
       case 'deleteClient': deleteClient(d.name); break;
       case 'saveSettings': saveSettings(d); break;
       case 'savePlans': savePlans(d.rows); break;
       default: return json({ ok: false, error: 'Unknown action' });
     }
     SpreadsheetApp.flush();
-    return json({ ok: true, data: getAll() });
+    return json({ ok: true, data: getAll(me) });
   } catch (err) {
     return json({ ok: false, error: String(err.message || err) });
   } finally {
@@ -124,9 +142,112 @@ function ensureTab(name, headers) {
   headers.forEach((h, i) => { if (!head[i]) s.getRange(1, i + 1).setValue(h); });
   return s;
 }
-function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes', 'Discount %']); }
+function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes', 'Discount %', 'Files & links']); }
 function cpTab() { return ensureTab(CLIENT_PRICES, ['Client name', 'Service', 'Special price (₹)']); }
 function settingsTab() { return ensureTab(SETTINGS, ['Setting', 'Value']); }
+
+/* ---------- login: owner PIN (Script properties) ya team member PIN (Team tab) ---------- */
+
+function props() { return PropertiesService.getScriptProperties(); }
+function salt() {
+  let s = props().getProperty('SALT');
+  if (!s) { s = Utilities.getUuid(); props().setProperty('SALT', s); }
+  return s;
+}
+function hashPin(pin) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt() + '|' + String(pin).trim());
+  return 'h:' + bytes.map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+function ownerPin() {
+  const p = props().getProperty('PIN');
+  if (!p) throw new Error('PIN not set. Script properties mein PIN add karo.');
+  return String(p).trim();
+}
+function ownerName() { const v = getSettings().ownerName; return v ? String(v).trim() : 'Owner'; }
+
+function auth(pin) {
+  pin = String(pin || '').trim();
+  const owner = ownerPin();
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('pinFails') || 0);
+  if (fails >= MAX_FAILS) throw new Error('Bahut baar galat PIN daala gaya. 10 minute baad try karo.');
+  const ok = me => { if (fails) cache.put('pinFails', '0', 1); return me; };
+  if (pin && pin === owner) return ok({ name: ownerName(), role: 'owner', view: 'all', money: true });
+  if (pin) {
+    const h = hashPin(pin);
+    const m = readTeam().find(t => t.hash === h);
+    if (m) {
+      if (!m.active) throw new Error('Tumhara access band hai. Owner se baat karo.');
+      return ok({ name: m.name, role: m.role, view: m.role === 'admin' ? 'all' : m.view, money: m.role === 'admin' ? true : m.money });
+    }
+  }
+  cache.put('pinFails', String(fails + 1), 600);
+  throw new Error('Wrong PIN');
+}
+
+/* ---------- team (Team tab) ---------- */
+
+function teamTab() { return ensureTab(TEAM, ['Name', 'PIN (locked)', 'Role', 'Can see', 'Money', 'Active', 'Phone', 'Added on']); }
+function yes(v) { return low(v) === 'yes' || v === true; }
+function readTeam() {
+  const s = teamTab();
+  const last = lastRowIn(s, 1);
+  if (last < 2) return [];
+  return s.getRange(2, 1, last - 1, 8).getValues().filter(r => r[0] !== '').map(r => ({
+    name: String(r[0]).trim(), hash: String(r[1] || ''), role: low(r[2]) === 'admin' ? 'admin' : 'member',
+    view: low(r[3]) === 'all' ? 'all' : 'own', money: yes(r[4]), active: r[5] === '' ? true : yes(r[5]),
+    phone: String(r[6] || ''), added: fmtDate(r[7])
+  }));
+}
+function findMemberRow(name) {
+  const s = teamTab();
+  const last = lastRowIn(s, 1);
+  if (last >= 2) {
+    const names = s.getRange(2, 1, last - 1, 1).getValues();
+    for (let i = 0; i < names.length; i++) if (low(names[i][0]) === low(name)) return i + 2;
+  }
+  return -1;
+}
+
+function saveMember(d) {
+  const name = String(d.name || '').trim();
+  const oldName = String(d.oldName || '').trim();
+  if (!name) throw new Error('Member ka naam zaroori hai');
+  if (low(name) === low(ownerName())) throw new Error('Ye naam owner ka hai, doosra naam rakho');
+  const s = teamTab();
+  let row = oldName ? findMemberRow(oldName) : -1;
+  if (oldName && row < 0) throw new Error('Member nahi mila. Refresh karo.');
+  const other = findMemberRow(name);
+  if (other > 0 && other !== row) throw new Error('Is naam ka member pehle se hai');
+
+  let hash = row > 0 ? String(s.getRange(row, 2).getValue()) : '';
+  const pin = String(d.pin || '').trim();
+  if (pin) {
+    if (!/^\d{6,12}$/.test(pin)) throw new Error('PIN 6 se 12 number ka hona chahiye');
+    if (pin === ownerPin()) throw new Error('Ye PIN owner ka hai, doosra PIN rakho');
+    const h = hashPin(pin);
+    if (readTeam().some(t => t.hash === h && low(t.name) !== low(oldName))) throw new Error('Ye PIN kisi aur member ka hai, doosra PIN rakho');
+    hash = h;
+  }
+  if (!hash) throw new Error('Naye member ke liye PIN zaroori hai');
+
+  if (row < 0) {
+    row = lastRowIn(s, 1) + 1;
+    if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 20);
+  }
+  const added = row > 0 && s.getRange(row, 8).getValue() ? s.getRange(row, 8).getValue() : new Date();
+  s.getRange(row, 1, 1, 8).setValues([[
+    name, hash, d.role === 'admin' ? 'Admin' : 'Member', d.view === 'all' ? 'All' : 'Own',
+    d.money ? 'Yes' : 'No', d.active === false ? 'No' : 'Yes', d.phone ? "'" + String(d.phone).trim() : '', added
+  ]]);
+  if (oldName && name !== oldName) renameInColumn(tab(MASTER), C.by, oldName, name);
+}
+
+function deleteMember(name) {
+  const row = findMemberRow(name);
+  if (row < 0) throw new Error('Member nahi mila');
+  teamTab().deleteRow(row);
+}
 
 /* ---------- prices ---------- */
 
@@ -187,13 +308,38 @@ function lockRates(workName, rate) {
 
 /* ---------- read ---------- */
 
-function getAll() {
+function masterTab() {
   const m = tab(MASTER);
+  if (m.getMaxColumns() < C.links) m.insertColumnsAfter(m.getMaxColumns(), C.links - m.getMaxColumns());
+  if (!m.getRange(1, C.by).getValue()) m.getRange(1, C.by).setValue('Added by');
+  if (!m.getRange(1, C.links).getValue()) m.getRange(1, C.links).setValue('Files & links');
+  return m;
+}
+
+/* ---------- files & links ---------- */
+
+// Website se list aati hai [{label,url}], sheet mein "Label | https://..." har line pe
+function cleanLinks(v) {
+  const arr = Array.isArray(v) ? v : String(v || '').split('\n').map(l => {
+    const i = l.lastIndexOf(' | ');
+    return i >= 0 ? { label: l.slice(0, i), url: l.slice(i + 3) } : { label: '', url: l };
+  });
+  return arr
+    .map(x => ({ label: String((x && x.label) || '').replace(/[|\r\n]+/g, ' ').trim().slice(0, 60), url: String((x && x.url) || '').trim() }))
+    .filter(x => /^https?:\/\/[^\s]+$/i.test(x.url))
+    .slice(0, 30)
+    .map(x => (x.label ? x.label + ' | ' : '') + x.url)
+    .join('\n');
+}
+
+function getAll(me) {
+  me = me || { name: 'Owner', role: 'owner', view: 'all', money: true };
+  const m = masterTab();
   const last = lastRowIn(m, C.client);
   let entries = [];
 
   if (last >= 2) {
-    const rows = m.getRange(2, 1, last - 1, C.saved).getValues();
+    const rows = m.getRange(2, 1, last - 1, C.links).getValues();
     const ids = [];
     let idsChanged = false;
     rows.forEach(r => {
@@ -218,9 +364,16 @@ function getAll() {
         amount: num(r[C.amount - 1]),
         status: String(r[C.status - 1] || 'Pending'),
         payment: String(r[C.payment - 1] || 'Unpaid'),
-        notes: String(r[C.notes - 1] || '')
+        notes: String(r[C.notes - 1] || ''),
+        by: String(r[C.by - 1] || '').trim(),
+        links: String(r[C.links - 1] || '')
       }));
   }
+
+  const owner = ownerName();
+  entries.forEach(e => { if (!e.by) e.by = owner; });
+  if (me.role === 'member' && me.view !== 'all') entries = entries.filter(e => low(e.by) === low(me.name));
+  if (!me.money) entries.forEach(e => { e.rate = null; e.amount = null; e.changes = ''; e.payment = ''; });
 
   const p = tab(PRICES);
   const pLast = lastRowIn(p, 3);
@@ -230,20 +383,30 @@ function getAll() {
 
   let plans = [];
   try { plans = tab(PLANS).getRange('A3:D15').getDisplayValues(); } catch (e) { plans = []; }
+  if (!me.money) {                                  // paisa nahi dikhana to price bhi nahi
+    services.forEach(sv => { sv.rate = null; sv.details = ''; });
+    plans = [];
+  }
 
+  const team = readTeam();
+  let clients = getClients();
+  if (!me.money) clients = clients.map(c => Object.assign({}, c, { discount: 0 }));
   return {
-    entries, services, plans,
-    clients: getClients(),
-    clientPrices: getClientPrices(),
+    entries, services, plans, clients,
+    clientPrices: me.money ? getClientPrices() : [],
     settings: getSettings(),
-    sheetUrl: book().getUrl()
+    me: me,
+    team: me.role === 'owner'
+      ? team.map(t => ({ name: t.name, role: t.role, view: t.view, money: t.money, active: t.active, phone: t.phone, added: t.added }))
+      : team.filter(t => t.active).map(t => ({ name: t.name, role: t.role })),
+    sheetUrl: me.role === 'member' ? '' : book().getUrl()
   };
 }
 
 /* ---------- entries ---------- */
 
 function writeEntry(row, d, savedRate) {
-  const s = tab(MASTER);
+  const s = masterTab();
   s.getRange(row, C.date, 1, 6).setValues([[
     toDate(d.date),
     String(d.client || '').trim(),
@@ -254,17 +417,32 @@ function writeEntry(row, d, savedRate) {
   ]]);
   s.getRange(row, C.status, 1, 3).setValues([[d.status || 'Pending', d.payment || 'Unpaid', d.notes || '']]);
   s.getRange(row, C.saved).setValue(savedRate === undefined || savedRate === null ? '' : savedRate);
+  if (d.links !== undefined) s.getRange(row, C.links).setValue(cleanLinks(d.links));
 }
 
-function addEntry(d) {
+function addEntry(d, me) {
+  me = me || { role: 'owner', money: true, name: '' };
   if (!d.client) throw new Error('Client name zaroori hai');
   if (!d.work) throw new Error('Work type chuno');
-  const s = tab(MASTER);
+  const s = masterTab();
   const row = lastRowIn(s, C.client) + 1;
   if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 100);
+  if (me.role === 'member') {
+    d.rate = '';                                   // member rate khud set nahi karta
+    if (!me.money) { d.payment = 'Unpaid'; d.changes = ''; }
+  }
   const rate = isNum(d.rate) ? Number(d.rate) : effectiveRate(d.client, d.work);
   writeEntry(row, d, rate);
   s.getRange(row, C.id).setValue(newId());
+  s.getRange(row, C.by).setValue(me.name || ownerName());
+}
+
+function entryOwner(row) {
+  const v = String(tab(MASTER).getRange(row, C.by).getValue() || '').trim();
+  return v || ownerName();
+}
+function assertMine(row, me) {
+  if (me && me.role === 'member' && low(entryOwner(row)) !== low(me.name)) throw new Error('Ye entry kisi aur ne add ki hai, tum ise badal nahi sakte');
 }
 
 function findEntryRow(id) {
@@ -277,9 +455,18 @@ function findEntryRow(id) {
   throw new Error('Entry nahi mili. Refresh karke dobara try karo.');
 }
 
-function updateEntry(d) {
-  const s = tab(MASTER);
+function updateEntry(d, me) {
+  const s = masterTab();
   const row = findEntryRow(d.id);
+  assertMine(row, me);
+  if (me && me.role === 'member') {
+    d.rate = '';
+    if (!me.money) {
+      d.payment = s.getRange(row, C.payment).getValue() || 'Unpaid';
+      const ch = s.getRange(row, C.changes).getValue();
+      d.changes = ch === '' ? '' : ch;
+    }
+  }
   const oldWork = String(s.getRange(row, C.work).getValue()).trim();
   const oldClient = String(s.getRange(row, C.client).getValue()).trim();
   let saved = s.getRange(row, C.saved).getValue();
@@ -288,8 +475,10 @@ function updateEntry(d) {
   writeEntry(row, d, saved);
 }
 
-function deleteEntry(id) {
-  tab(MASTER).deleteRow(findEntryRow(id));
+function deleteEntry(id, me) {
+  const row = findEntryRow(id);
+  assertMine(row, me);
+  tab(MASTER).deleteRow(row);
 }
 
 /* ---------- services (Price List) ---------- */
@@ -380,11 +569,11 @@ function getClients() {
   const s = clientsTab();
   const last = lastRowIn(s, 1);
   if (last < 2) return [];
-  return s.getRange(2, 1, last - 1, 5).getValues()
+  return s.getRange(2, 1, last - 1, 6).getValues()
     .filter(r => r[0] !== '')
     .map(r => ({
       name: String(r[0]).trim(), phone: String(r[1] || ''), photo: String(r[2] || ''),
-      notes: String(r[3] || ''), discount: num(r[4])
+      notes: String(r[3] || ''), discount: num(r[4]), links: String(r[5] || '')
     }));
 }
 
@@ -398,7 +587,11 @@ function findClientRow(name) {
   return -1;
 }
 
-function saveClient(d) {
+function saveClient(d, me) {
+  if (me && me.role === 'member') {
+    delete d.discount; delete d.prices;            // pricing sirf owner/admin
+    if (d.oldName && low(d.oldName) !== low(d.name)) throw new Error('Client ka naam sirf owner badal sakta hai');
+  }
   const name = String(d.name || '').trim();
   if (!name) throw new Error('Client name zaroori hai');
   const oldName = String(d.oldName || name).trim();
@@ -411,13 +604,14 @@ function saveClient(d) {
     row = lastRowIn(s, 1) + 1;
     if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 50);
   }
-  const cur = s.getRange(row, 1, 1, 5).getValues()[0];
-  s.getRange(row, 1, 1, 5).setValues([[
+  const cur = s.getRange(row, 1, 1, 6).getValues()[0];
+  s.getRange(row, 1, 1, 6).setValues([[
     name,
     d.phone !== undefined ? (d.phone ? "'" + String(d.phone).trim() : '') : cur[1],
     d.photo !== undefined && d.photo !== null ? d.photo : cur[2],
     d.notes !== undefined ? d.notes : cur[3],
-    d.discount !== undefined ? (isNum(d.discount) && Number(d.discount) > 0 ? Math.min(100, Number(d.discount)) : '') : cur[4]
+    d.discount !== undefined ? (isNum(d.discount) && Number(d.discount) > 0 ? Math.min(100, Number(d.discount)) : '') : cur[4],
+    d.links !== undefined ? cleanLinks(d.links) : cur[5]
   ]]);
 
   const cp = cpTab();
@@ -425,6 +619,7 @@ function saveClient(d) {
     renameInColumn(tab(MASTER), C.client, oldName, name);
     renameInColumn(cp, 1, oldName, name);
   }
+  if (me && me.role === 'member') return;
 
   // special prices: website se puri list aati hai, purani hata ke nayi likho
   if (Array.isArray(d.prices)) {

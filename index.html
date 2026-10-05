@@ -359,6 +359,29 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
 .demo-a{display:block;text-align:center;margin-top:18px;font-weight:700;color:var(--muted);background:none;border:0;width:100%}
 .demo-a:hover{color:var(--text)}
 
+/* ================= LINKS / TEAM ================= */
+.lk-list{display:flex;flex-wrap:wrap;gap:8px}
+.lkw{display:inline-flex;align-items:center;max-width:100%;border:1px solid var(--line-2);background:var(--glass-3);border-radius:10px;overflow:hidden}
+.lkw:hover{border-color:var(--acc)}
+.lk{display:inline-flex;align-items:center;gap:8px;min-width:0;padding:6px 10px 6px 6px;text-decoration:none;color:var(--text);font-size:12.5px;font-weight:700}
+.lk .li{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:10.5px;font-weight:800;background:var(--c);flex:none}
+.lk .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+.lk small{color:var(--muted);font-weight:500;white-space:nowrap}
+.lkw .x{border:0;border-left:1px solid var(--line);background:none;color:var(--muted);padding:0 9px;align-self:stretch;font-size:15px}
+.lkw .x:hover{color:var(--coral);background:var(--coral-soft)}
+.lk-add{display:grid;grid-template-columns:1fr 150px auto;gap:8px;margin-top:10px}
+.lk-sec{border:1px dashed var(--line-2);border-radius:12px;padding:12px;background:color-mix(in srgb,var(--glass-3) 50%,transparent)}
+.lk-sec h4{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:8px}
+.lk-sec h4 small{font-weight:500;color:var(--muted);font-size:11.5px}
+.clip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line-2);background:var(--glass-3);border-radius:6px;padding:3px 7px;font-size:11.5px;font-weight:700;color:var(--text)}
+.clip svg.i{width:13px;height:13px}
+.ro-note{display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--yellow-soft);border:1px solid color-mix(in srgb,var(--yellow) 45%,transparent);font-size:12.5px;font-weight:600}
+.share{border:1px solid var(--line-2);border-radius:12px;padding:14px;background:var(--glass-3);display:flex;flex-direction:column;gap:10px}
+.share code{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all;background:var(--line);padding:8px 10px;border-radius:8px;display:block}
+.pinbig{font-size:26px;font-weight:800;letter-spacing:.25em}
+.who-me{display:flex;align-items:center;gap:10px;padding:8px 12px;white-space:nowrap}
+.who-me small{display:block;color:var(--faint);font-size:11px}
+.who-me b{font-size:12.5px}
 /* ================= MOBILE ================= */
 .mnav,.fab{display:none}
 @media (max-width:1100px){
@@ -384,6 +407,8 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
   .stat b{font-size:17px}
   .stat .ic{width:34px;height:34px}
   .pr-in{width:78px}
+  .lk-add{grid-template-columns:1fr}
+  .lk .t{max-width:170px}
   .m1{grid-template-columns:1fr}
   .pt th,.pt td{padding:10px 8px}
   .pt th:nth-child(4),.pt td:nth-child(4){display:none}
@@ -428,13 +453,14 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
   <div class="lg-r">
     <div class="lg-card glass">
       <h2>Welcome back</h2>
-      <p class="sub">Apne work manager mein login karo</p>
+      <p class="sub">Owner ho ya team member, apna PIN daalo</p>
       <div class="field" id="urlFld"><label>Apps Script URL</label><input class="inp" id="lUrl" placeholder="https://script.google.com/macros/s/.../exec"><small>Sirf pehli baar chahiye</small></div>
       <div class="field"><label>PIN</label><input class="inp pin" id="lPin" type="text" inputmode="numeric" autocomplete="one-time-code" name="vx-pin" maxlength="12" spellcheck="false" style="-webkit-text-security:disc"></div>
       <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);font-weight:600"><input type="checkbox" id="lRem" checked> Remember me on this device</label>
       <div class="err" id="lErr"></div>
       <button class="btn primary" style="width:100%;padding:12px" id="lBtn">Sign in</button>
       <button class="demo-a" id="demoBtn">Explore the demo first →</button>
+      <p class="sub" id="lTeamHint" style="font-size:12px;text-align:center;margin-top:10px">Team member? Owner ka bheja hua link kholo, phir apna PIN daalo.</p>
     </div>
   </div>
 </div>
@@ -503,7 +529,7 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
 const DEFAULT_API_URL = '';
 
 /* ================= STATE ================= */
-const EMPTY = { entries:[], services:[], plans:[], clients:[], clientPrices:[], settings:{}, sheetUrl:'' };
+const EMPTY = { entries:[], services:[], plans:[], clients:[], clientPrices:[], settings:{}, sheetUrl:'', me:null, team:[] };
 const clone = o => JSON.parse(JSON.stringify(o));
 const S = { data:clone(EMPTY), view:'home', demo:false, charts:[], period:'month', svcTab:'std', planEdit:false,
   f:{ q:'', tab:'all', month:'', client:'' }, cq:'', cTab:'all' };
@@ -549,6 +575,39 @@ function avatar(name,cls,photo){
 }
 function logoHtml(){ const l=set('logo'); return l?`<img src="${esc(l)}" alt="logo">`:`<svg viewBox="0 0 24 24"><path d="M12 4 20.5 19.5h-17z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M16.3 11.9 20.5 19.5h-7.8z" fill="#E01F26"/></svg>`; }
 
+/* ================= ROLES ================= */
+// owner: sab kuch · admin: sab kaam + paisa (team/settings nahi) · member: apna (ya sab) kaam, paisa optional
+const ME = () => S.data.me || {name:set('ownerName'),role:'owner',view:'all',money:true};
+const isOwner = () => ME().role==='owner';
+const canManage = () => ME().role!=='member';
+const money = () => ME().money!==false;
+const byOf = e => e.by || set('ownerName');
+const mine = e => canManage() || low(byOf(e))===low(ME().name);
+const roleLabel = r => ({owner:'Owner',admin:'Admin',member:'Member'})[r]||'Member';
+
+/* ================= FILES & LINKS ================= */
+function parseLinks(v){
+  const arr=Array.isArray(v)?v:String(v||'').split('\n').map(l=>{ const i=l.lastIndexOf(' | '); return i>=0?{label:l.slice(0,i),url:l.slice(i+3)}:{label:'',url:l}; });
+  return arr.map(x=>({label:String(x.label||'').trim(),url:String(x.url||'').trim()})).filter(x=>/^https?:\/\/\S+$/i.test(x.url));
+}
+const LKSRC=[[/drive\.google|docs\.google/,'Google Drive','G','#1FA463'],[/photos\.google|photos\.app\.goo/,'Google Photos','P','#EA4335'],[/dropbox/,'Dropbox','D','#0061FF'],[/wetransfer|we\.tl/,'WeTransfer','W','#409FFF'],[/onedrive|1drv|sharepoint/,'OneDrive','O','#0F6CBD'],[/instagram/,'Instagram','I','#D6249F'],[/youtu/,'YouTube','Y','#FF0000'],[/canva/,'Canva','C','#00C4CC'],[/figma/,'Figma','F','#A259FF'],[/mega\.nz/,'MEGA','M','#D9272E'],[/frame\.io/,'Frame.io','F','#5B53FF'],[/wa\.me|whatsapp/,'WhatsApp','W','#25D366']];
+function linkMeta(url){ let h=''; try{ h=new URL(url).hostname.replace(/^www\./,''); }catch(e){} const f=LKSRC.find(x=>x[0].test(h)); return f?{name:f[1],k:f[2],c:f[3],host:h}:{name:h||'Link',k:(h[0]||'L').toUpperCase(),c:'#6B7281',host:h}; }
+function linkChip(l,del){ const m=linkMeta(l.url); return `<span class="lkw"><a class="lk" href="${esc(l.url)}" target="_blank" rel="noopener" data-stop="1" title="${esc(l.url)}"><span class="li" style="--c:${m.c}">${esc(m.k)}</span><span class="t">${esc(l.label||m.name)}</span>${l.label?`<small>${esc(m.name)}</small>`:''}${ic('link').replace('class="i"','class="i" style="width:13px;height:13px;color:var(--muted)"')}</a>${del?`<button class="x" data-act="lkDel" data-arg="${del}" title="Remove">×</button>`:''}</span>`; }
+const LKS={};
+function linksEditor(id,list,title,hint){ LKS[id]=parseLinks(list); return `<div class="lk-sec"><h4>${ic('link')}${title}<small>${hint||''}</small></h4><div class="lk-list" id="${id}L">${lkListHtml(id)}</div>
+  <div class="lk-add"><input class="inp" id="${id}U" placeholder="Link paste karo: Google Drive, WeTransfer, Dropbox…" autocomplete="off"><input class="inp" id="${id}N" placeholder="Naam (optional)"><button class="btn" type="button" data-act="lkAdd" data-arg="${id}">${ic('plus')}Add</button></div></div>`; }
+function lkListHtml(id){ const L=LKS[id]||[]; return L.length?L.map((l,i)=>linkChip(l,id+':'+i)).join(''):'<span class="muted" style="font-size:12.5px">Abhi koi link nahi. Raw photos, videos ya reference ka link yahan daalo.</span>'; }
+function lkAdd(id){ const u=$('#'+id+'U'), n=$('#'+id+'N'); let url=u.value.trim(); if(!url) return toast('Pehle link paste karo',true); if(!/^https?:\/\//i.test(url)) url='https://'+url;
+  if(!parseLinks([{url}]).length) return toast('Ye sahi link nahi lag raha',true); (LKS[id]=LKS[id]||[]).push({label:n.value.trim(),url}); u.value=''; n.value=''; $('#'+id+'L').innerHTML=lkListHtml(id); u.focus(); }
+function bindLinks(id){ const u=$('#'+id+'U'); if(!u) return; u.addEventListener('paste',()=>setTimeout(()=>{ if(/^https?:\/\/\S+$/i.test(u.value.trim())&&!$('#'+id+'N').value) $('#'+id+'N').focus(); },0)); u.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lkAdd(id); } }); $('#'+id+'N').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lkAdd(id); } }); }
+function pendingLink(id){ const u=$('#'+id+'U'); if(u&&u.value.trim()) lkAdd(id); return LKS[id]||[]; }
+function linksMenu(id,btn){
+  $$('.menu').forEach(m=>m.remove()); const e=S.data.entries.find(x=>x.id===id), L=parseLinks(e.links), r=btn.getBoundingClientRect(), m=document.createElement('div'); m.className='menu'; m.style.maxWidth='340px';
+  m.innerHTML=`<div style="padding:6px 8px 8px;font-size:12px;color:var(--muted);font-weight:600">${esc(e.client)} · ${esc(e.work)}</div><div class="lk-list" style="padding:0 6px 6px;flex-direction:column;align-items:stretch">${L.map(l=>linkChip(l)).join('')}</div>`;
+  document.body.appendChild(m); m.style.top=Math.min(innerHeight-m.offsetHeight-10,r.bottom+6)+'px'; m.style.left=Math.max(10,Math.min(innerWidth-m.offsetWidth-10,r.right-m.offsetWidth))+'px';
+}
+function joinLink(){ const u=CFG.url||'https://script.google.com/macros/s/DEMO/exec'; return location.origin+location.pathname+'#join='+btoa(unescape(encodeURIComponent(u))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
 /* ================= PRICING ENGINE ================= */
 // 1) client special price  2) client discount %  3) standard price
 function stdRate(w){ const s=S.data.services.find(x=>x.name===w); return s&&s.rate!=null?+s.rate:null; }
@@ -574,7 +633,7 @@ function applyBrand(){
   document.documentElement.style.setProperty('--acc', set('accent'));
   const n=set('brandName'); $('#brandName').textContent=n; $('#lgBrand').textContent=n; document.title=n+' · Work Manager';
   $('#lgLogo').innerHTML=logoHtml(); $('#lgLogo').classList.toggle('img',!!set('logo'));
-  $('#meAv').innerHTML=avatar(set('ownerName'),'',''); if(set('logo')) $('#favicon').href=set('logo');
+  if(set('logo')) $('#favicon').href=set('logo');
 }
 
 /* ================= API ================= */
@@ -599,20 +658,24 @@ function demoApi(a,d){
   const D=S.data;
   const calc=e=>{ e.rate=e._saved!=null&&e._saved!==''?+e._saved:(stdRate(e.work)||0); e.amount=(e.qty===''||e.qty==null?1:+e.qty)*e.rate+(+e.changes||0); return e; };
   const eff=(c,w)=>{ const r=effRate(c,w).rate; return r==null?'':r; };
+  const dl=v=>parseLinks(v).map(x=>(x.label?x.label+' | ':'')+x.url).join('\n');
   switch(a){
-    case 'addEntry': D.entries.push(calc({...d,id:'D'+Date.now(),_saved:isNum(d.rate)?+d.rate:eff(d.client,d.work)})); break;
-    case 'updateEntry': { const i=D.entries.findIndex(e=>e.id===d.id), o=D.entries[i]; let sv=o._saved; if(isNum(d.rate)) sv=+d.rate; else if(o.work!==d.work||low(o.client)!==low(d.client)) sv=eff(d.client,d.work); D.entries[i]=calc({...o,...d,_saved:sv}); break; }
+    case 'addEntry': D.entries.push(calc({...d,links:dl(d.links),by:ME().name,id:'D'+Date.now(),_saved:isNum(d.rate)?+d.rate:eff(d.client,d.work)})); break;
+    case 'updateEntry': { const i=D.entries.findIndex(e=>e.id===d.id), o=D.entries[i]; let sv=o._saved; if(isNum(d.rate)) sv=+d.rate; else if(o.work!==d.work||low(o.client)!==low(d.client)) sv=eff(d.client,d.work); D.entries[i]=calc({...o,...d,links:d.links!==undefined?dl(d.links):o.links,by:o.by,_saved:sv}); break; }
     case 'deleteEntry': D.entries=D.entries.filter(e=>e.id!==d.id); break;
     case 'addService': if(D.services.some(s=>low(s.name)===low(d.name))) throw new Error('Ye service pehle se hai'); D.services.push({name:d.name.trim(),rate:+d.price,details:(+d.price)+'/- '+(d.details||'')}); break;
     case 'updateService': { const s=D.services.find(x=>x.name===d.oldName); D.entries.forEach(e=>{ if(e.work===d.oldName){ if(e._saved==null) e._saved=s.rate; e.work=d.name; } }); D.clientPrices.forEach(p=>{ if(p.service===d.oldName) p.service=d.name; }); Object.assign(s,{name:d.name,rate:+d.price,details:d.details}); break; }
     case 'deleteService': D.services=D.services.filter(x=>x.name!==d.name); D.clientPrices=D.clientPrices.filter(p=>p.service!==d.name); break;
     case 'saveClient': { const old=d.oldName||d.name; let c=clientProfile(old); if(!c){ c={name:d.name,phone:'',photo:'',notes:'',discount:0}; D.clients.push(c); }
       if(old!==d.name){ D.entries.forEach(e=>{ if(low(e.client)===low(old)) e.client=d.name; }); D.clientPrices.forEach(p=>{ if(low(p.client)===low(old)) p.client=d.name; }); }
-      c.name=d.name; if(d.phone!==undefined) c.phone=d.phone; if(d.photo!=null) c.photo=d.photo; if(d.notes!==undefined) c.notes=d.notes; if(d.discount!==undefined) c.discount=+d.discount||0;
+      c.name=d.name; if(d.phone!==undefined) c.phone=d.phone; if(d.photo!=null) c.photo=d.photo; if(d.notes!==undefined) c.notes=d.notes; if(d.discount!==undefined) c.discount=+d.discount||0; if(d.links!==undefined) c.links=dl(d.links);
       if(Array.isArray(d.prices)){ D.clientPrices=D.clientPrices.filter(p=>low(p.client)!==low(d.name)).concat(d.prices.filter(p=>isNum(p.price)).map(p=>({client:d.name,service:p.service,price:+p.price}))); } break; }
     case 'deleteClient': D.clients=D.clients.filter(c=>c.name!==d.name); D.clientPrices=D.clientPrices.filter(p=>low(p.client)!==low(d.name)); break;
     case 'saveSettings': Object.keys(d).forEach(k=>{ D.settings[k]=typeof d[k]==='object'?JSON.stringify(d[k]):d[k]; }); break;
     case 'savePlans': d.rows.slice(0,11).forEach((r,i)=>{ D.plans[i]=r; }); break;
+    case 'saveMember': { if(!d.name) throw new Error('Member ka naam zaroori hai'); const old=d.oldName; let m=old?D.team.find(t=>t.name===old):null; if(!m&&!d.pin) throw new Error('Naye member ke liye PIN zaroori hai'); if(d.pin&&!/^\d{6,12}$/.test(d.pin)) throw new Error('PIN 6 se 12 number ka hona chahiye');
+      if(!m){ m={added:today()}; D.team.push(m); } if(old&&old!==d.name) D.entries.forEach(e=>{ if(e.by===old) e.by=d.name; }); Object.assign(m,{name:d.name,role:d.role==='admin'?'admin':'member',view:d.view==='all'?'all':'own',money:!!d.money,active:d.active!==false,phone:d.phone||''}); break; }
+    case 'deleteMember': D.team=D.team.filter(t=>t.name!==d.name); break;
   }
   D.entries.forEach(calc);
   return Promise.resolve(D);
@@ -632,7 +695,9 @@ function demoData(){
     entries.push({id:'D'+i,date:ymd(d),client:c,phone:cl.find(x=>x[0]===c)[1],work:w,qty,changes:ch,rate:r,amount:qty*r+(+ch||0),status:back>10?'Delivered':(rnd()<.5?'In progress':'Pending'),payment:(back>25?rnd()<.9:rnd()<.45)?'Paid':'Unpaid',notes:'',_saved:r});
   }
   const plans=[['What you get','Starter','Growth','Premium'],['Best for','New cafe or salon starting online','Shop or restaurant that wants enquiries','Multi-outlet business or D2C brand'],['Social posts','12','16','24'],['Reels (up to 30 sec)','3','6','10'],['Shoot hours','-','2','4'],['Design images (banner, listing, A+)','-','2','4'],['Meta Ads management','No','Yes','Yes'],['Caption, hashtags, scheduling','Yes','Yes','Yes'],['Revision rounds','1','2','3'],['Reporting','Monthly summary','Monthly report','Monthly report + review call'],['Client ad budget (paid to Meta directly)','Not included','₹3,000+ per month','₹6,000+ per month'],['Price per month (₹)','₹5,000','₹11,500','₹15,000'],['3 months advance, 5% off (₹)','₹14,250','₹32,775','₹42,750']];
-  return {...S.data,entries,plans,settings:{brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:''}};
+  entries.forEach((e,i)=>{ e.by=i%5===1?'Rahul':i%7===2?'Priya':'Shivam'; if(i%4===0) e.links=['Raw photos | https://drive.google.com/drive/folders/demo'+i,'https://we.tl/t-demo'+i].slice(0,1+i%2).join('\n'); });
+  S.data.clients[0].links='Brand kit | https://drive.google.com/drive/folders/brewcafe-brand\nInstagram | https://instagram.com/brewcafe';
+  return {...S.data,entries,plans,me:{name:'Shivam',role:'owner',view:'all',money:true},team:[{name:'Rahul',role:'member',view:'own',money:false,active:true,phone:'9800000001',added:'2026-09-20'},{name:'Priya',role:'admin',view:'all',money:true,active:true,phone:'9800000002',added:'2026-09-25'}],settings:{brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:''}};
 }
 
 /* ================= METRICS ================= */
@@ -669,21 +734,24 @@ function clientList(){
 const delta=(n,b)=>{ if(!b) return ''; const p=(n-b)/b*100; return `<span class="${p>=0?'up':'down'}">${p>=0?'↑':'↓'} ${Math.abs(p).toFixed(0)}%</span>`; };
 
 /* ================= CHROME ================= */
-const PAGES=[['home','Home','home'],['work','All Work','work'],['clients','Clients','users'],['services','Services & Prices','tag'],['plans','Plans','box']];
+const PAGES=[['home','Home','home'],['work','All Work','work'],['clients','Clients','users'],['services','Services & Prices','tag'],['plans','Plans','box'],['team','Team','users']];
+function allowed(v){ if(v==='team') return isOwner(); if(v==='services'||v==='plans') return canManage(); return true; }
 function renderChrome(){
-  const due=clientList().filter(c=>c.due>0).length, open=S.data.entries.filter(e=>e.status!=='Delivered').length;
-  const sb=(id,t,i,extra)=>`<button class="sbtn ${S.view===id?'active':''}" data-act="go" data-arg="${id}">${ic(i)}<span class="lbl">${t}</span>${extra||''}</button>`;
+  const E=S.data.entries, due=money()?clientList().filter(c=>c.due>0).length:0, open=E.filter(e=>e.status!=='Delivered'&&mine(e)).length, me=ME();
+  const sb=(id,t,i,extra)=>allowed(id)?`<button class="sbtn ${S.view===id?'active':''}" data-act="go" data-arg="${id}">${ic(i)}<span class="lbl">${t}</span>${extra||''}</button>`:'';
   $('#side').innerHTML=`<div class="side-brand" data-act="go" data-arg="home"><div class="logo ${set('logo')?'img':''}">${logoHtml()}</div><span class="lbl">${esc(set('brandName'))}</span></div>
     ${sb('home','Home','home')}
     <div class="sgrp">Work</div>${sb('work','All Work','work',open?`<span class="cnt lbl">${open}</span>`:'')}${sb('clients','Clients','users')}
-    <div class="sgrp">Manage</div>${sb('services','Services & Prices','tag')}${sb('plans','Plans','box')}
-    <div class="spacer"></div><div class="pw">Synced with Google Sheet</div>
-    <button class="sbtn" data-act="sheet">${ic('sheet')}<span class="lbl">Open Google Sheet</span></button>
+    ${canManage()?`<div class="sgrp">Manage</div>${sb('services','Services & Prices','tag')}${sb('plans','Plans','box')}${sb('team','Team','users',`<span class="cnt lbl" style="background:var(--acc)">${(S.data.team||[]).length}</span>`)}`:''}
+    <div class="spacer"></div>
+    <div class="who-me lbl">${avatar(me.name,'sm')}<div><b>${esc(me.name)}</b><small>${roleLabel(me.role)} · synced with Google Sheet</small></div></div>
+    ${S.data.sheetUrl||S.demo?`<button class="sbtn" data-act="sheet">${ic('sheet')}<span class="lbl">Open Google Sheet</span></button>`:''}
     <button class="sbtn" data-act="theme">${ic(document.documentElement.dataset.theme==='dark'?'sun':'moon')}<span class="lbl">Dark / Light</span></button>
-    <button class="sbtn" data-act="settings" data-arg="brand">${ic('gear')}<span class="lbl">Settings</span></button>`;
-  $('#nav').innerHTML=[['home','Home'],['work','Work'],['clients','Clients'],['services','Services'],['plans','Plans']].map(([id,t])=>`<a class="${S.view===id?'active':''}" data-act="go" data-arg="${id}">${t}${id==='work'&&open?` <span class="dotn">${open}</span>`:''}</a>`).join('');
-  $('#mnav').innerHTML=[['home','Home','home'],['work','Work','work'],['clients','Clients','users'],['services','Prices','tag'],['more','More','more']].map(([id,t,i])=>`<a class="${S.view===id?'active':''}" data-act="${id==='more'?'more':'go'}" data-arg="${id}">${ic(i)}${t}</a>`).join('');
-  $('#bell').innerHTML=ic('bell')+(due?'<span class="dot"></span>':'');
+    ${isOwner()?`<button class="sbtn" data-act="settings" data-arg="brand">${ic('gear')}<span class="lbl">Settings</span></button>`:`<button class="sbtn" data-act="logout">${ic('logout')}<span class="lbl">Log out</span></button>`}`;
+  $('#nav').innerHTML=[['home','Home'],['work','Work'],['clients','Clients'],['services','Services'],['plans','Plans'],['team','Team']].filter(([id])=>allowed(id)).map(([id,t])=>`<a class="${S.view===id?'active':''}" data-act="go" data-arg="${id}">${t}${id==='work'&&open?` <span class="dotn">${open}</span>`:''}</a>`).join('');
+  $('#mnav').innerHTML=[['home','Home','home'],['work','Work','work'],['clients','Clients','users'],...(canManage()?[['services','Prices','tag']]:[]),['more','More','more']].map(([id,t,i])=>`<a class="${S.view===id?'active':''}" data-act="${id==='more'?'more':'go'}" data-arg="${id}">${ic(i)}${t}</a>`).join('');
+  $('#bell').hidden=!money(); $('#bell').innerHTML=ic('bell')+(due?'<span class="dot"></span>':'');
+  $('#meAv').innerHTML=avatar(me.name,'',''); $('#meAv').dataset.act=isOwner()?'settings':'more';
   applyTheme();
 }
 function go(v){ S.view=v; render(); window.scrollTo({top:0}); }
@@ -691,7 +759,8 @@ function go(v){ S.view=v; render(); window.scrollTo({top:0}); }
 function render(){
   S.charts.forEach(c=>c.destroy()); S.charts=[];
   renderChrome();
-  const v={home:vHome,work:vWork,clients:vClients,services:vServices,plans:vPlans}[S.view]||vHome;
+  if(!allowed(S.view)) S.view='home';
+  const v={home:vHome,work:vWork,clients:vClients,services:vServices,plans:vPlans,team:vTeam}[S.view]||vHome;
   const el=$('#view'); el.innerHTML=v(); el.classList.remove('view-in'); void el.offsetWidth; el.classList.add('view-in');
   if(S.view==='home') drawCharts();
 }
@@ -702,6 +771,7 @@ const remind=(n,due)=>`Hi ${n}, ${set('brandName')} se message hai. Aapka ${inr(
 
 /* ================= HOME ================= */
 function vHome(){
+  if(!money()) return vHomeWork();
   const M=metrics(), W=widgets(), R=M.R, target=(+set('monthlyTarget')||0)*R.mult, pct=target?Math.min(100,Math.round(M.paid/target*100)):0;
   const h=new Date().getHours(), hi=h<12?'Good morning':h<17?'Good afternoon':'Good evening', now=new Date();
   const svc=Object.entries(M.svc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]), svcTot=svc.reduce((s,[,v])=>s+v,0);
@@ -713,7 +783,7 @@ function vHome(){
   const C=2*Math.PI*26;
   return `<div class="home-hi"><div><h1>${hi}, ${esc(set('ownerName'))} 👋</h1><p class="sub">${DAY[now.getDay()]} ${now.getDate()} ${MON[now.getMonth()]}, yahan dekho aaj kya karna hai.</p></div>
     <div class="head-actions"><div class="seg">${[['month','This month'],['last','Last month'],['year','This year']].map(([k,t])=>`<button class="segb ${S.period===k?'active':''}" data-act="period" data-arg="${k}">${t}</button>`).join('')}</div>
-    <button class="btn sm" data-act="settings" data-arg="dash">✎ Customize</button></div></div>
+    ${isOwner()?'<button class="btn sm" data-act="settings" data-arg="dash">✎ Customize</button>':''}</div></div>
   ${W.target?`<div class="home-setup glass"><div class="home-ring"><svg viewBox="0 0 62 62"><circle cx="31" cy="31" r="26"/><circle class="on" cx="31" cy="31" r="26" stroke-dasharray="${(C*pct/100).toFixed(1)} ${C.toFixed(1)}"/></svg><b>${pct}%</b></div>
     <div class="home-st"><small class="muted">Target · ${R.label}</small><span>${inr(M.paid)} of ${inr(target)}</span><small class="muted">${target>M.paid?inr(target-M.paid)+' aur chahiye':'Target poora ho gaya 🎉'}</small></div>
     <div class="home-steps">
@@ -738,7 +808,7 @@ function vHome(){
   </div>`:''}
   ${W.todo?`<div class="home-2">
     <div class="card glass"><div class="card-h"><h3>Do this now</h3><span class="home-n">${S.data.entries.filter(e=>e.status!=='Delivered').length} jobs</span><button class="lnk" data-act="workTab" data-arg="Pending">View all →</button></div>
-      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}"><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}</small></div>${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
+      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}" ${mine(e)?'':'disabled'}><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}</small></div>${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
     <div class="card glass"><div class="card-h"><h3>Recent work</h3><button class="lnk" data-act="go" data-arg="work">View all →</button></div>
       <div class="home-list">${recent.length?recent.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}">${avatar(e.client,'sm')}<div class="grow"><b>${esc(e.client)}</b><small>${esc(e.work)} · ${dLabel(e.date)}</small></div><span class="amt">${inr(e.amount)}</span>${payPill(e)}</div>`).join(''):'<div class="empty">Pehli entry add karo</div>'}</div></div>
   </div>`:''}
@@ -758,67 +828,162 @@ function drawCharts(){
       scales:{x:{grid:{display:false},border:{display:false}},y:{beginAtZero:true,border:{display:false},grid:{color:line},ticks:{maxTicksLimit:5,callback:v=>v>=1000?'₹'+(v/1000)+'k':'₹'+v}}}}}));
 }
 
+function vHomeWork(){
+  const me=ME(), now=new Date(), h=now.getHours(), hi=h<12?'Good morning':h<17?'Good afternoon':'Good evening', E=S.data.entries, mk=ymd(now).slice(0,7);
+  const pend=E.filter(e=>e.status==='Pending').length, prog=E.filter(e=>e.status==='In progress').length, doneM=E.filter(e=>e.status==='Delivered'&&mKey(e.date)===mk).length;
+  const todo=E.filter(e=>e.status!=='Delivered').sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8), recent=[...E].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  return `<div class="home-hi"><div><h1>${hi}, ${esc(me.name)} 👋</h1><p class="sub">${DAY[now.getDay()]} ${now.getDate()} ${MON[now.getMonth()]} · ${me.view==='all'?'Team ka sab kaam':'Tumhara kaam'}</p></div><div class="head-actions"><button class="btn primary" data-act="addEntry">${ic('plus')}Add work</button></div></div>
+  <div class="home-cards">
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:#C58B2B">${ic('clock')}</span>Pending</div><div class="home-cn"><b>${pend}</b></div><p>Shuru karna baaki</p><button class="btn sm" data-act="workTab" data-arg="Pending">View →</button></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--acc)">${ic('work')}</span>In progress</div><div class="home-cn"><b>${prog}</b></div><p>Abhi chal raha hai</p><button class="btn sm" data-act="workTab" data-arg="In progress">View →</button></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--green)">${ic('wallet')}</span>Delivered</div><div class="home-cn"><b>${doneM}</b></div><p>Is mahine deliver kiya</p><button class="btn sm" data-act="workTab" data-arg="Delivered">View →</button></div>
+    <div class="home-c glass"><div class="home-ch"><span class="home-ci" style="--c:var(--violet)">${ic('users')}</span>Clients</div><div class="home-cn"><b>${clientList().length}</b></div><p>Profile, files, links</p><button class="btn sm" data-act="go" data-arg="clients">View →</button></div>
+  </div>
+  <div class="home-2">
+    <div class="card glass"><div class="card-h"><h3>Do this now</h3><span class="home-n">${E.filter(e=>e.status!=='Delivered').length} jobs</span><button class="lnk" data-act="workTab" data-arg="Pending">View all →</button></div>
+      <div class="home-todo">${todo.length?todo.map(e=>`<label class="home-t"><input type="checkbox" data-act="markDone" data-arg="${e.id}" ${mine(e)?'':'disabled'}><div><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${esc(e.client)} · ${dLabel(e.date)}${me.view==='all'?' · '+esc(byOf(e)):''}</small></div>${parseLinks(e.links).length?`<span class="clip">${ic('link')}${parseLinks(e.links).length}</span>`:''}${statusPill(e)}</label>`).join(''):'<div class="empty">Sab kaam deliver ho gaya 🎉</div>'}</div></div>
+    <div class="card glass"><div class="card-h"><h3>Recent work</h3><button class="lnk" data-act="go" data-arg="work">View all →</button></div>
+      <div class="home-list">${recent.length?recent.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}">${avatar(e.client,'sm')}<div class="grow"><b>${esc(e.client)}</b><small>${esc(e.work)} · ${dLabel(e.date)}</small></div>${statusPill(e)}</div>`).join(''):'<div class="empty">Pehli entry add karo</div>'}</div></div>
+  </div>`;
+}
+
 /* ================= WORK ================= */
 function workRows(){
   const f=S.f, q=low(f.q);
-  return [...S.data.entries].filter(e=>(!q||low(e.client+' '+e.work+' '+e.notes).includes(q))
+  return [...S.data.entries].filter(e=>(!q||low(e.client+' '+e.work+' '+e.notes+' '+byOf(e)).includes(q))
     &&(f.tab==='all'||(f.tab==='Unpaid'?e.payment!=='Paid':e.status===f.tab))
-    &&(!f.month||mKey(e.date)===f.month)&&(!f.client||low(e.client)===low(f.client))).sort((a,b)=>b.date.localeCompare(a.date));
+    &&(!f.month||mKey(e.date)===f.month)&&(!f.client||low(e.client)===low(f.client))&&(!f.by||low(byOf(e))===low(f.by))).sort((a,b)=>b.date.localeCompare(a.date));
 }
 function vWork(){
   const E=S.data.entries, cnt=t=>t==='all'?E.length:t==='Unpaid'?E.filter(e=>e.payment!=='Paid').length:E.filter(e=>e.status===t).length;
-  const months=[...new Set(E.map(e=>mKey(e.date)))].sort().reverse(), clients=[...new Set(E.map(e=>e.client))].sort();
-  return pageH('Work','All Work','Har client ka har kaam. Status ya payment pe click karke badlo.',`<button class="btn" data-act="exportCsv">${ic('down')}Export CSV</button><button class="btn primary" data-act="addEntry">${ic('plus')}Add Work</button>`)+
-  `<div class="tabs" style="margin-bottom:12px">${[['all','All'],['Pending','Pending'],['In progress','In progress'],['Delivered','Delivered'],['Unpaid','Unpaid']].map(([k,t])=>`<button class="tab ${S.f.tab===k?'active':''}" data-act="workTab" data-arg="${k}">${t}<span class="n">${cnt(k)}</span></button>`).join('')}</div>
+  const months=[...new Set(E.map(e=>mKey(e.date)))].sort().reverse(), clients=[...new Set(E.map(e=>e.client))].sort(), people=[...new Set(E.map(byOf))].sort();
+  const tabs=[['all','All'],['Pending','Pending'],['In progress','In progress'],['Delivered','Delivered'],...(money()?[['Unpaid','Unpaid']]:[])];
+  return pageH('Work','All Work',ME().role==='member'&&ME().view!=='all'?'Tumhara kaam. Status pe click karke badlo, row pe click karke files & links dekho.':'Har client ka har kaam. Status ya payment pe click karke badlo.',`${canManage()?`<button class="btn" data-act="exportCsv">${ic('down')}Export CSV</button>`:''}<button class="btn primary" data-act="addEntry">${ic('plus')}Add Work</button>`)+
+  `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k,t])=>`<button class="tab ${S.f.tab===k?'active':''}" data-act="workTab" data-arg="${k}">${t}<span class="n">${cnt(k)}</span></button>`).join('')}</div>
   <div class="toolbar glass"><label class="search">${ic('search')}<input id="wq" placeholder="Client, work, notes…" value="${esc(S.f.q)}"></label>
     <select class="sel" id="wm"><option value="">All months</option>${months.map(m=>`<option value="${m}" ${S.f.month===m?'selected':''}>${mLabel(m)}</option>`).join('')}</select>
-    <select class="sel" id="wc"><option value="">All clients</option>${clients.map(c=>`<option ${low(S.f.client)===low(c)?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+    <select class="sel" id="wc"><option value="">All clients</option>${clients.map(c=>`<option ${low(S.f.client)===low(c)?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    ${people.length>1?`<select class="sel" id="wb"><option value="">Sab ka kaam</option>${people.map(p=>`<option ${low(S.f.by)===low(p)?'selected':''}>${esc(p)}</option>`).join('')}</select>`:''}</div>
   <div class="glass tblcard" id="wt">${workTable()}</div>`;
 }
 function workTable(){
   const rows=workRows(); if(!rows.length) return '<div class="empty">Koi kaam nahi mila</div>';
-  const tot=rows.reduce((s,e)=>s+(+e.amount||0),0), paid=rows.filter(e=>e.payment==='Paid').reduce((s,e)=>s+(+e.amount||0),0);
-  return `<div class="tblwrap"><table class="tbl"><thead><tr><th>Date</th><th>Client</th><th>Work</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Changes</th><th class="num">Amount</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>
-  ${rows.map(e=>{ const std=stdRate(e.work), sp=std!=null&&e.rate<std; return `<tr data-act="editEntry" data-arg="${e.id}"><td>${dLabel(e.date)}</td>
+  const M=money(), showBy=new Set(S.data.entries.map(byOf)).size>1||(S.data.team||[]).length>0;
+  const tot=M?rows.reduce((s,e)=>s+(+e.amount||0),0):0, paid=M?rows.filter(e=>e.payment==='Paid').reduce((s,e)=>s+(+e.amount||0),0):0;
+  return `<div class="tblwrap"><table class="tbl"><thead><tr><th>Date</th><th>Client</th><th>Work</th><th class="num">Qty</th>${M?'<th class="num">Rate</th><th class="num">Changes</th><th class="num">Amount</th>':''}<th>Status</th>${M?'<th>Payment</th>':''}<th>Files</th>${showBy?'<th>By</th>':''}<th></th></tr></thead><tbody>
+  ${rows.map(e=>{ const std=stdRate(e.work), sp=M&&std!=null&&e.rate<std, L=parseLinks(e.links), own=mine(e); return `<tr data-act="editEntry" data-arg="${e.id}"><td>${dLabel(e.date)}</td>
     <td><div class="who">${avatar(e.client,'sm')}<b>${esc(e.client)}</b></div></td><td>${esc(e.work)}</td><td class="num">${e.qty===''?1:e.qty}</td>
-    <td class="num">${sp?`<span class="strike">${inr(std)}</span>`:''}${inr(e.rate)}${sp?'<span class="tag">special</span>':''}</td>
-    <td class="num">${e.changes?inr(e.changes):'<span class="muted">-</span>'}</td><td class="num"><b>${inr(e.amount)}</b></td>
-    <td>${statusPill(e,1)}</td><td>${payPill(e,1)}</td>
+    ${M?`<td class="num">${sp?`<span class="strike">${inr(std)}</span>`:''}${inr(e.rate)}${sp?'<span class="tag">special</span>':''}</td>
+    <td class="num">${e.changes?inr(e.changes):'<span class="muted">-</span>'}</td><td class="num"><b>${inr(e.amount)}</b></td>`:''}
+    <td>${statusPill(e,own)}</td>${M?`<td>${payPill(e,own)}</td>`:''}
+    <td>${L.length?`<button class="clip" data-act="linksMenu" data-arg="${e.id}" title="Files & links">${ic('link')}${L.length}</button>`:'<span class="muted">-</span>'}</td>
+    ${showBy?`<td><div class="who">${avatar(byOf(e),'sm')}<span style="font-size:12.5px">${esc(byOf(e))}</span></div></td>`:''}
     <td><div class="acts"><button class="ibtn sm" data-act="entryMenu" data-arg="${e.id}" title="More">${ic('more')}</button></div></td></tr>`; }).join('')}
-  </tbody></table></div><div class="tfoot"><span>${rows.length} entries</span><span>Total <b>${inr(tot)}</b></span><span>Paid <b>${inr(paid)}</b></span><span>Pending <b style="color:var(--coral)">${inr(tot-paid)}</b></span></div>`;
+  </tbody></table></div><div class="tfoot"><span>${rows.length} entries</span>${M?`<span>Total <b>${inr(tot)}</b></span><span>Paid <b>${inr(paid)}</b></span><span>Pending <b style="color:var(--coral)">${inr(tot-paid)}</b></span>`:''}</div>`;
 }
 function exportCsv(){
   const rows=workRows(), head=['Date','Client','Phone','Work','Qty','Rate','Changes','Amount','Status','Payment','Notes'];
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-  const csv=[head.join(',')].concat(rows.map(e=>[e.date,e.client,e.phone,e.work,e.qty===''?1:e.qty,e.rate,e.changes,e.amount,e.status,e.payment,e.notes].map(q).join(','))).join('\n');
+  const csv=[head.concat(['Added by','Files & links']).join(',')].concat(rows.map(e=>[e.date,e.client,e.phone,e.work,e.qty===''?1:e.qty,e.rate,e.changes,e.amount,e.status,e.payment,e.notes,byOf(e),parseLinks(e.links).map(l=>l.url).join(' ')].map(q).join(','))).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download='work-'+today()+'.csv'; a.click();
 }
 
 /* ================= CLIENTS ================= */
 function vClients(){
-  const all=clientList(), q=low(S.cq);
+  const all=clientList(), q=low(S.cq), M=money();
   let list=all.filter(c=>!q||low(c.name+' '+c.phone).includes(q));
   if(S.cTab==='special') list=list.filter(c=>hasSpecial(c.name)); if(S.cTab==='due') list=list.filter(c=>c.due>0);
   list.sort((a,b)=>(b.last||'').localeCompare(a.last||''));
-  const due=all.reduce((s,c)=>s+c.due,0), earned=all.reduce((s,c)=>s+c.paid,0), sp=all.filter(c=>hasSpecial(c.name)).length;
-  return pageH('CRM','Clients','Photo, phone, pricing aur hisaab. Kisi bhi client pe click karo.',`<button class="btn primary" data-act="addClient">${ic('plus')}Add Client</button>`)+
+  const due=all.reduce((s,c)=>s+c.due,0), earned=all.reduce((s,c)=>s+c.paid,0), sp=all.filter(c=>hasSpecial(c.name)).length, files=all.filter(c=>parseLinks(c.links).length).length;
+  const tabs=[['all','All',all.length],...(canManage()?[['special','Special price',sp]]:[]),...(M?[['due','Payment due',all.filter(c=>c.due>0).length]]:[])];
+  return pageH('CRM','Clients','Photo, phone, files & links aur hisaab. Kisi bhi client pe click karo.',`<button class="btn primary" data-act="addClient">${ic('plus')}Add Client</button>`)+
   `<div class="stats">
     <div class="stat glass"><span class="ic" style="--c:var(--acc)">${ic('users')}</span><div><b>${all.length}</b><span>Total clients</span></div></div>
-    <div class="stat glass"><span class="ic" style="--c:var(--violet)">${ic('tag')}</span><div><b>${sp}</b><span>Special price wale</span></div></div>
+    ${M?`<div class="stat glass"><span class="ic" style="--c:var(--violet)">${ic('tag')}</span><div><b>${sp}</b><span>Special price wale</span></div></div>
     <div class="stat glass"><span class="ic" style="--c:var(--green)">${ic('wallet')}</span><div><b>${inr(earned)}</b><span>Total received</span></div></div>
-    <div class="stat glass"><span class="ic" style="--c:var(--coral)">${ic('alert')}</span><div><b>${inr(due)}</b><span>Pending payment</span></div></div></div>
-  <div class="tabs" style="margin-bottom:12px">${[['all','All',all.length],['special','Special price',sp],['due','Payment due',all.filter(c=>c.due>0).length]].map(([k,t,n])=>`<button class="tab ${S.cTab===k?'active':''}" data-act="cTab" data-arg="${k}">${t}<span class="n">${n}</span></button>`).join('')}</div>
+    <div class="stat glass"><span class="ic" style="--c:var(--coral)">${ic('alert')}</span><div><b>${inr(due)}</b><span>Pending payment</span></div></div>`
+    :`<div class="stat glass"><span class="ic" style="--c:var(--violet)">${ic('link')}</span><div><b>${files}</b><span>Files & links wale</span></div></div>
+    <div class="stat glass"><span class="ic" style="--c:#C58B2B">${ic('clock')}</span><div><b>${S.data.entries.filter(e=>e.status!=='Delivered').length}</b><span>Kaam baaki</span></div></div>
+    <div class="stat glass"><span class="ic" style="--c:var(--green)">${ic('work')}</span><div><b>${S.data.entries.length}</b><span>Total jobs</span></div></div>`}</div>
+  <div class="tabs" style="margin-bottom:12px">${tabs.map(([k,t,n])=>`<button class="tab ${S.cTab===k?'active':''}" data-act="cTab" data-arg="${k}">${t}<span class="n">${n}</span></button>`).join('')}</div>
   <div class="toolbar glass"><label class="search">${ic('search')}<input id="cq" placeholder="Search client or phone" value="${esc(S.cq)}"></label></div>
   <div class="glass tblcard" id="ct">${clientTable(list)}</div>`;
 }
 function clientTable(list){
   if(!list.length) return '<div class="empty">Koi client nahi mila. "Add Client" dabao.</div>';
-  return `<div class="tblwrap"><table class="tbl"><thead><tr><th>Client</th><th>Pricing</th><th class="num">Jobs</th><th class="num">Total work</th><th class="num">Received</th><th class="num">Due</th><th>Last work</th><th></th></tr></thead><tbody>
-  ${list.map(c=>`<tr data-act="openClient" data-arg="${esc(c.name)}"><td><div class="who">${avatar(c.name)}<div><b>${esc(c.name)}</b><small>${esc(c.phone||'No phone')}</small></div></div></td>
-    <td>${pricingLabel(c.name)}</td><td class="num">${c.jobs}</td><td class="num">${inr(c.total)}</td><td class="num">${inr(c.paid)}</td>
-    <td class="num"><b style="color:${c.due?'var(--coral)':'inherit'}">${inr(c.due)}</b></td><td>${c.last?dLabel(c.last):'<span class="muted">-</span>'}</td>
-    <td><div class="acts">${c.due>0&&c.phone?`<a class="ibtn sm" data-stop="1" target="_blank" href="${waLink(c.phone,remind(c.name,c.due))}" title="WhatsApp reminder" style="color:var(--wa)">${ic('wa')}</a>`:''}<button class="ibtn sm" data-act="openClient" data-arg="${esc(c.name)}" data-tab="pricing" title="Pricing">${ic('tag')}</button><button class="ibtn sm" data-act="openClient" data-arg="${esc(c.name)}" title="Edit">${ic('edit')}</button></div></td></tr>`).join('')}
+  const M=money(), P=canManage();
+  return `<div class="tblwrap"><table class="tbl"><thead><tr><th>Client</th>${P?'<th>Pricing</th>':''}<th>Files</th><th class="num">Jobs</th>${M?'<th class="num">Total work</th><th class="num">Received</th><th class="num">Due</th>':''}<th>Last work</th><th></th></tr></thead><tbody>
+  ${list.map(c=>{ const L=parseLinks(c.links), n=L.length+S.data.entries.filter(e=>low(e.client)===low(c.name)).reduce((s,e)=>s+parseLinks(e.links).length,0); return `<tr data-act="openClient" data-arg="${esc(c.name)}"><td><div class="who">${avatar(c.name)}<div><b>${esc(c.name)}</b><small>${esc(c.phone||'No phone')}</small></div></div></td>
+    ${P?`<td>${pricingLabel(c.name)}</td>`:''}<td>${n?`<button class="clip" data-act="openClient" data-arg="${esc(c.name)}" data-tab="files">${ic('link')}${n}</button>`:'<span class="muted">-</span>'}</td><td class="num">${c.jobs}</td>
+    ${M?`<td class="num">${inr(c.total)}</td><td class="num">${inr(c.paid)}</td><td class="num"><b style="color:${c.due?'var(--coral)':'inherit'}">${inr(c.due)}</b></td>`:''}<td>${c.last?dLabel(c.last):'<span class="muted">-</span>'}</td>
+    <td><div class="acts">${M&&c.due>0&&c.phone?`<a class="ibtn sm" data-stop="1" target="_blank" href="${waLink(c.phone,remind(c.name,c.due))}" title="WhatsApp reminder" style="color:var(--wa)">${ic('wa')}</a>`:''}${P?`<button class="ibtn sm" data-act="openClient" data-arg="${esc(c.name)}" data-tab="pricing" title="Pricing">${ic('tag')}</button>`:''}<button class="ibtn sm" data-act="openClient" data-arg="${esc(c.name)}" data-tab="files" title="Files & links">${ic('link')}</button><button class="ibtn sm" data-act="openClient" data-arg="${esc(c.name)}" title="Edit">${ic('edit')}</button></div></td></tr>`; }).join('')}
   </tbody></table></div>`;
+}
+/* ================= TEAM (owner) ================= */
+function vTeam(){
+  const T=S.data.team||[], cnt=n=>S.data.entries.filter(e=>low(byOf(e))===low(n)).length, open=n=>S.data.entries.filter(e=>low(byOf(e))===low(n)&&e.status!=='Delivered').length;
+  return pageH('Team','Team members','Team ko apna PIN do. Woh login karke apna kaam khud add kar sakte hain.',`<button class="btn" data-act="shareJoin">${ic('link')}Login link</button><button class="btn primary" data-act="addMember">${ic('plus')}Add member</button>`)+
+  `<div class="stats">
+    <div class="stat glass"><span class="ic" style="--c:var(--acc)">${ic('users')}</span><div><b>${T.length}</b><span>Members</span></div></div>
+    <div class="stat glass"><span class="ic" style="--c:var(--green)">${ic('work')}</span><div><b>${T.reduce((s,t)=>s+cnt(t.name),0)}</b><span>Team ne add kiye jobs</span></div></div>
+    <div class="stat glass"><span class="ic" style="--c:#C58B2B">${ic('clock')}</span><div><b>${T.reduce((s,t)=>s+open(t.name),0)}</b><span>Team ka kaam baaki</span></div></div>
+    <div class="stat glass"><span class="ic" style="--c:var(--violet)">${ic('wallet')}</span><div><b>${T.filter(t=>t.money||t.role==='admin').length}</b><span>Paisa dekh sakte</span></div></div></div>
+  <div class="glass tblcard">${T.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Member</th><th>Role</th><th>Kya dekh sakte</th><th>Paisa</th><th class="num">Jobs</th><th class="num">Baaki</th><th>Status</th><th></th></tr></thead><tbody>
+  ${T.map(t=>`<tr data-act="editMember" data-arg="${esc(t.name)}"><td><div class="who">${avatar(t.name)}<div><b>${esc(t.name)}</b><small>${esc(t.phone||'No phone')}</small></div></div></td>
+    <td><span class="pill ${t.role==='admin'?'acc':'grey'}">${roleLabel(t.role)}</span></td><td>${t.role==='admin'||t.view==='all'?'Sab ka kaam':'Sirf apna kaam'}</td>
+    <td>${t.role==='admin'||t.money?'<span class="pill green dot">Haan</span>':'<span class="pill grey dot">Nahi</span>'}</td><td class="num">${cnt(t.name)}</td><td class="num">${open(t.name)}</td>
+    <td>${t.active?'<span class="pill green dot">Active</span>':'<span class="pill coral dot">Band</span>'}</td>
+    <td><div class="acts">${t.phone?`<a class="ibtn sm" data-stop="1" target="_blank" href="${waLink(t.phone,'Hi '+t.name+', '+set('brandName')+' work manager ka login link: '+joinLink()+' . Apna PIN daal ke login karo.')}" title="Login link WhatsApp karo" style="color:var(--wa)">${ic('wa')}</a>`:''}<button class="ibtn sm" data-act="editMember" data-arg="${esc(t.name)}" title="Edit">${ic('edit')}</button></div></td></tr>`).join('')}
+  </tbody></table></div>`:`<div class="empty">Abhi koi team member nahi.<br><br><button class="btn primary" data-act="addMember">${ic('plus')}Pehla member add karo</button></div>`}</div>
+  <div class="glass card" style="margin-top:14px"><div class="card-h"><h3>Kaun kya kar sakta hai</h3></div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th></th><th>Owner (tum)</th><th>Admin</th><th>Member</th></tr></thead><tbody style="cursor:default">
+    ${[['Kaam add karna, files/links daalna','✓','✓','✓'],['Doosron ka kaam dekhna','✓','✓','Agar "Sab ka kaam" on'],['Doosron ka kaam badalna','✓','✓','✗ (sirf apna)'],['Amount, payment, price dekhna','✓','✓','Agar "Paisa" on'],['Rate badalna, Services, Plans, client pricing','✓','✓','✗'],['Team aur Settings','✓','✗','✗']].map(r=>`<tr style="cursor:default"><td><b>${r[0]}</b></td>${r.slice(1).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+let MD=null;
+function openMember(name){
+  const t=name?(S.data.team||[]).find(x=>x.name===name):null;
+  MD={old:t?t.name:'',name:t?t.name:'',phone:t?t.phone:'',role:t?t.role:'member',view:t?t.view:'own',money:t?!!t.money:false,active:t?t.active!==false:true,pin:''};
+  drawMember();
+}
+function drawMember(){
+  const m=MD, adm=m.role==='admin';
+  modal(mHead(m.old?esc(m.old):'Add team member',m.old?'PIN khaali chhodo to purana hi rahega':'Member is PIN se login karega',avatar(m.name||'?','lg',''))+`<div class="m-body">
+    <div class="f2"><div class="field"><label>Naam</label><input class="inp" id="tN" value="${esc(m.name)}" placeholder="e.g. Rahul"></div><div class="field"><label>Phone (WhatsApp)</label><input class="inp" id="tP" inputmode="tel" value="${esc(m.phone)}" placeholder="10 digit"></div></div>
+    <div class="field"><label>${m.old?'Naya PIN (optional)':'PIN'}</label><div style="display:flex;gap:8px"><input class="inp pin" id="tPin" inputmode="numeric" maxlength="12" value="${esc(m.pin)}" placeholder="6+ digit"><button class="btn" type="button" data-act="genPin">Generate</button></div><small>6 se 12 number. Har member ka PIN alag hona chahiye. Sheet mein locked (hash) save hota hai.</small></div>
+    <div class="field"><label>Role</label><div class="seg"><button type="button" class="segb ${!adm?'active':''}" data-act="mRole" data-arg="member">Member</button><button type="button" class="segb ${adm?'active':''}" data-act="mRole" data-arg="admin">Admin</button></div></div>
+    ${adm?'<div class="note-box">Admin sab clients ka kaam aur paisa dekh sakta hai, rate, services aur client pricing badal sakta hai. Team aur Settings sirf tum.</div>':`
+    <div class="field"><label>Kya dekh sakta hai</label><div class="seg"><button type="button" class="segb ${m.view!=='all'?'active':''}" data-act="mView" data-arg="own">Sirf apna kaam</button><button type="button" class="segb ${m.view==='all'?'active':''}" data-act="mView" data-arg="all">Sab ka kaam</button></div><small>Doosron ka kaam dekh sakta hai, badal nahi sakta</small></div>
+    <div class="tg"><span>Amount, payment aur price dikhao</span><label class="sw"><input type="checkbox" id="tM" ${m.money?'checked':''}><i></i></label></div>`}
+    <div class="tg"><span>Access on (band karne se login nahi hoga)</span><label class="sw"><input type="checkbox" id="tA" ${m.active?'checked':''}><i></i></label></div>
+  </div><div class="m-foot">${m.old?`<button class="btn danger" data-act="delMember" data-arg="${esc(m.old)}">${ic('trash')}</button>`:''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="tGo">${m.old?'Save member':'Add member'}</button></div>`,'narrow');
+  $('#tGo').onclick=saveMember;
+}
+function readMember(){ MD.name=$('#tN').value.trim(); MD.phone=$('#tP').value.trim(); MD.pin=$('#tPin').value.trim(); if($('#tM')) MD.money=$('#tM').checked; MD.active=$('#tA').checked; }
+async function saveMember(){
+  readMember(); const m=MD;
+  if(!m.name) return toast('Naam likho',true);
+  if(!m.old&&!m.pin) return toast('PIN daalo ya Generate dabao',true);
+  if(m.pin&&!/^\d{6,12}$/.test(m.pin)) return toast('PIN 6 se 12 number ka ho',true);
+  const b=$('#tGo'); b.disabled=true; b.textContent='Saving…';
+  const ok=await run('saveMember',{oldName:m.old,name:m.name,phone:m.phone,pin:m.pin,role:m.role,view:m.role==='admin'?'all':m.view,money:m.role==='admin'||m.money,active:m.active},m.old?'Member saved':'Member added');
+  if(!ok){ b.disabled=false; b.textContent='Try again'; return; }
+  if(m.pin) shareLogin(m); else closeModal();
+}
+function shareLogin(m){
+  const link=joinLink(), msg=`Hi ${m.name}, ${set('brandName')} work manager ka login:\n${link}\nPIN: ${m.pin}\nLink kholo, PIN daalo, bas.`;
+  modal(mHead('Login details bhejo',`${esc(m.name)} ko ye bhejo. PIN dobara nahi dikhega.`)+`<div class="m-body"><div class="share">
+    <div class="field"><label>Login link</label><code>${esc(link)}</code></div>
+    <div class="field"><label>PIN</label><div class="pinbig">${esc(m.pin)}</div></div></div>
+    <div class="note-box">Link kholte hi website apne aap tumhari sheet se jud jayegi. Member ko sirf PIN daalna hai.</div></div>
+    <div class="m-foot"><button class="btn" id="shCp">${ic('down')}Copy</button><span class="grow"></span>${m.phone?`<a class="btn wa" data-stop="1" target="_blank" href="${waLink(m.phone,msg)}">${ic('wa')}WhatsApp pe bhejo</a>`:`<a class="btn wa" data-stop="1" target="_blank" href="https://wa.me/?text=${encodeURIComponent(msg)}">${ic('wa')}WhatsApp</a>`}<button class="btn primary" data-act="close">Done</button></div>`,'narrow');
+  $('#shCp').onclick=()=>{ try{ navigator.clipboard.writeText(msg); toast('Copied'); }catch(e){ toast('Copy nahi hua, haath se select karo',true); } };
+}
+function shareJoin(){
+  const link=joinLink(), msg=`${set('brandName')} work manager login: ${link}\nApna PIN daal ke login karo.`;
+  modal(mHead('Team login link','Ye link team ko bhejo. PIN alag se do.')+`<div class="m-body"><div class="share"><code>${esc(link)}</code></div><div class="note-box">Link kholte hi website tumhari sheet se jud jati hai. Isme koi password nahi hai, login sirf PIN se hota hai.</div></div>
+    <div class="m-foot"><button class="btn" id="shCp">${ic('down')}Copy</button><span class="grow"></span><a class="btn wa" data-stop="1" target="_blank" href="https://wa.me/?text=${encodeURIComponent(msg)}">${ic('wa')}WhatsApp</a><button class="btn primary" data-act="close">Done</button></div>`,'narrow');
+  $('#shCp').onclick=()=>{ try{ navigator.clipboard.writeText(link); toast('Link copied'); }catch(e){ toast('Copy nahi hua',true); } };
 }
 
 /* ================= SERVICES & PRICES ================= */
@@ -884,68 +1049,83 @@ function confirmBox(title,text,yes){
 
 /* ---------- work entry ---------- */
 function openEntry(id,preset){
-  const e=id?S.data.entries.find(x=>x.id===id):{date:today(),client:'',phone:'',work:'',qty:1,changes:'',rate:'',status:'Pending',payment:'Unpaid',notes:'',...(preset||{})};
+  const e=id?S.data.entries.find(x=>x.id===id):{date:today(),client:'',phone:'',work:'',qty:1,changes:'',rate:'',status:'Pending',payment:'Unpaid',notes:'',links:'',...(preset||{})};
+  const M=money(), RATE=canManage(), RO=!!id&&!mine(e);
   const names=clientList().map(c=>c.name).sort(), svcs=S.data.services;
-  const opts=svcs.map(s=>`<option value="${esc(s.name)}" ${e.work===s.name?'selected':''}>${esc(s.name)} · ${s.rate!=null?inr(s.rate):'custom'}</option>`).join('')+(e.work&&!svcs.some(s=>s.name===e.work)?`<option selected value="${esc(e.work)}">${esc(e.work)} (removed)</option>`:'');
-  modal(mHead(id?'Edit work':'Add work','Ye entry sheet ke Master tab mein jayegi')+`<div class="m-body">
-    <div class="field"><label>Client</label><div class="cl-in"><span id="eAv">${avatar(e.client||'?','sm')}</span><input id="eCl" list="clL" value="${esc(e.client)}" placeholder="Client ka naam likho ya chuno" autocomplete="off"><span id="ePl"></span></div><datalist id="clL">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
-    <div class="f2"><div class="field"><label>Date</label><input class="inp" type="date" id="eD" value="${esc(e.date)}"></div><div class="field"><label>Phone</label><input class="inp" id="ePh" inputmode="tel" value="${esc(e.phone)}" placeholder="10 digit"></div></div>
-    <div class="field"><label>Work type</label><select class="inp" id="eW"><option value="">Service chuno</option>${opts}</select></div>
-    <div class="f3"><div class="field"><label>Qty</label><div class="stepper"><button type="button" data-step="-1">−</button><input id="eQ" inputmode="numeric" value="${e.qty===''?1:esc(e.qty)}"><button type="button" data-step="1">+</button></div></div>
-      <div class="field"><label>Rate (₹)</label><input class="inp" id="eR" inputmode="numeric" value="${id?esc(e.rate):''}"><small id="eRh"></small></div>
-      <div class="field"><label>Changes (₹)</label><input class="inp" id="eC" inputmode="numeric" value="${esc(e.changes)}" placeholder="0"><small>Amount mein plus</small></div></div>
-    <div class="f1"><div class="field"><label>Status</label><div class="seg" id="eS">${['Pending','In progress','Delivered'].map(s=>`<button type="button" class="segb ${e.status===s?'active':''}" data-v="${s}">${s}</button>`).join('')}</div></div>
-      <div class="field"><label>Payment</label><div class="seg" id="eP">${['Unpaid','Paid'].map(s=>`<button type="button" class="segb ${e.payment===s?'active':''}" data-v="${s}">${s}</button>`).join('')}</div></div></div>
-    <div class="field"><label>Notes</label><textarea class="inp" id="eN" placeholder="Optional">${esc(e.notes)}</textarea></div>
-    <div class="calc"><div><span id="eCalc"></span><div id="eSave" class="save-badge"></div></div><b id="eTot"></b></div>
-  </div><div class="m-foot">${id?`<button class="btn danger" data-act="delEntry" data-arg="${e.id}">${ic('trash')}Delete</button>`:''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="eGo">${id?'Save changes':'Add work'}</button></div>`,'narrow');
+  const opts=svcs.map(s=>`<option value="${esc(s.name)}" ${e.work===s.name?'selected':''}>${esc(s.name)}${M?' · '+(s.rate!=null?inr(s.rate):'custom'):''}</option>`).join('')+(e.work&&!svcs.some(s=>s.name===e.work)?`<option selected value="${esc(e.work)}">${esc(e.work)} (removed)</option>`:'');
+  const dis=RO?'disabled':'';
+  modal(mHead(RO?'Work details':id?'Edit work':'Add work',id?`Added by ${esc(byOf(e))}`:'Ye entry sheet ke Master tab mein jayegi')+`<div class="m-body">
+    ${RO?`<div class="ro-note">${ic('info')}Ye kaam ${esc(byOf(e))} ne add kiya hai. Tum sirf dekh sakte ho aur files khol sakte ho.</div>`:''}
+    <div class="field"><label>Client</label><div class="cl-in"><span id="eAv">${avatar(e.client||'?','sm')}</span><input id="eCl" list="clL" value="${esc(e.client)}" placeholder="Client ka naam likho ya chuno" autocomplete="off" ${dis}><span id="ePl"></span></div><datalist id="clL">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+    <div class="f2"><div class="field"><label>Date</label><input class="inp" type="date" id="eD" value="${esc(e.date)}" ${dis}></div><div class="field"><label>Phone</label><input class="inp" id="ePh" inputmode="tel" value="${esc(e.phone)}" placeholder="10 digit" ${dis}></div></div>
+    <div class="field"><label>Work type</label><select class="inp" id="eW" ${dis}><option value="">Service chuno</option>${opts}</select></div>
+    <div class="${M?'f3':'f2'}"><div class="field"><label>Qty</label><div class="stepper"><button type="button" data-step="-1" ${dis}>−</button><input id="eQ" inputmode="numeric" value="${e.qty===''?1:esc(e.qty)}" ${dis}><button type="button" data-step="1" ${dis}>+</button></div></div>
+      ${M?`<div class="field"><label>Rate (₹)</label><input class="inp" id="eR" inputmode="numeric" value="${id?esc(e.rate):''}" ${RATE&&!RO?'':'readonly'}><small id="eRh"></small></div>
+      <div class="field"><label>Changes (₹)</label><input class="inp" id="eC" inputmode="numeric" value="${esc(e.changes)}" placeholder="0" ${dis}><small>Amount mein plus</small></div>`:'<div></div>'}</div>
+    <div class="f1"><div class="field"><label>Status</label><div class="seg" id="eS">${['Pending','In progress','Delivered'].map(s=>`<button type="button" class="segb ${e.status===s?'active':''}" data-v="${s}" ${dis}>${s}</button>`).join('')}</div></div>
+      ${M?`<div class="field"><label>Payment</label><div class="seg" id="eP">${['Unpaid','Paid'].map(s=>`<button type="button" class="segb ${e.payment===s?'active':''}" data-v="${s}" ${dis}>${s}</button>`).join('')}</div></div>`:''}</div>
+    ${RO?(parseLinks(e.links).length?`<div class="lk-sec"><h4>${ic('link')}Files & links</h4><div class="lk-list">${parseLinks(e.links).map(l=>linkChip(l)).join('')}</div></div>`:''):linksEditor('eLk',e.links,'Files & links','Client ka raw material, reference, final files')}
+    <div class="field"><label>Notes</label><textarea class="inp" id="eN" placeholder="Optional" ${dis}>${esc(e.notes)}</textarea></div>
+    ${M?`<div class="calc"><div><span id="eCalc"></span><div id="eSave" class="save-badge"></div></div><b id="eTot"></b></div>`:''}
+  </div><div class="m-foot">${id&&!RO?`<button class="btn danger" data-act="delEntry" data-arg="${e.id}">${ic('trash')}Delete</button>`:''}<span class="grow"></span><button class="btn" data-act="close">${RO?'Close':'Cancel'}</button>${RO?'':`<button class="btn primary" id="eGo">${id?'Save changes':'Add work'}</button>`}</div>`,'narrow');
+  if(RO) return;
+  bindLinks('eLk');
   let manual=!!id;
-  const fill=()=>{
-    const c=$('#eCl').value.trim(), w=$('#eW').value, r=effRate(c,w), std=stdRate(w);
-    if(!manual){ $('#eR').value=r.rate==null?'':r.rate; }
-    const src={special:`${esc(c)} ka special price`,discount:`${r.d}% discount`,standard:'Standard price',none:'Is service ka koi fixed rate nahi, khud likho'}[r.src];
-    $('#eRh').innerHTML=w?(manual&&id?'Is entry ka rate':src)+(std!=null&&r.src!=='standard'?` · std ${inr(std)}`:''):'';
-    $('#ePl').innerHTML=c&&hasSpecial(c)?'<span class="pill acc" style="margin-right:4px">Special</span>':'';
-    calc();
-  };
-  const calc=()=>{
+  const calc=()=>{ if(!M) return;
     const w=$('#eW').value, std=stdRate(w), rate=+$('#eR').value||0, q=+$('#eQ').value||1, ch=+$('#eC').value||0, tot=rate*q+ch;
     $('#eCalc').textContent=`${inr(rate)} × ${q}${ch?' + '+inr(ch):''}`; $('#eTot').textContent=inr(tot);
     $('#eSave').textContent=std!=null&&rate<std?`Client ko ${inr((std-rate)*q)} ki chhoot`:'';
   };
+  const fill=()=>{
+    const c=$('#eCl').value.trim(), w=$('#eW').value;
+    $('#ePl').innerHTML=c&&canManage()&&hasSpecial(c)?'<span class="pill acc" style="margin-right:4px">Special</span>':'';
+    if(!M) return;
+    const r=effRate(c,w), std=stdRate(w);
+    if(!manual) $('#eR').value=r.rate==null?'':r.rate;
+    const src={special:`${esc(c)} ka special price`,discount:`${r.d}% discount`,standard:'Standard price',none:'Is service ka koi fixed rate nahi'+(RATE?', khud likho':'')}[r.src];
+    $('#eRh').innerHTML=w?(manual&&id?'Is entry ka rate':src)+(std!=null&&r.src!=='standard'?` · std ${inr(std)}`:''):'';
+    calc();
+  };
   $('#eCl').addEventListener('input',()=>{ const v=$('#eCl').value; $('#eAv').innerHTML=avatar(v||'?','sm'); const p=clientList().find(c=>low(c.name)===low(v)); if(p&&p.phone&&!$('#ePh').value) $('#ePh').value=p.phone; if(!id) manual=false; fill(); });
   $('#eW').addEventListener('change',()=>{ manual=false; fill(); });
-  $('#eR').addEventListener('input',()=>{ manual=true; $('#eRh').textContent='Is entry ke liye apna rate'; calc(); });
-  ['#eQ','#eC'].forEach(s=>$(s).addEventListener('input',calc));
+  if(M){ $('#eR').addEventListener('input',()=>{ manual=true; $('#eRh').textContent='Is entry ke liye apna rate'; calc(); }); $('#eC').addEventListener('input',calc); }
+  $('#eQ').addEventListener('input',calc);
   $$('#mbox [data-step]').forEach(b=>b.onclick=()=>{ const i=$('#eQ'); i.value=Math.max(1,(+i.value||1)+(+b.dataset.step)); calc(); });
   $$('#mbox .seg').forEach(g=>g.onclick=ev=>{ const b=ev.target.closest('.segb'); if(!b) return; g.querySelectorAll('.segb').forEach(x=>x.classList.remove('active')); b.classList.add('active'); });
   fill();
   $('#eGo').onclick=async()=>{
-    const d={id:e.id,date:$('#eD').value||today(),client:$('#eCl').value.trim(),phone:$('#ePh').value.trim(),work:$('#eW').value,qty:$('#eQ').value,changes:$('#eC').value,rate:$('#eR').value.trim(),status:$('#eS .active').dataset.v,payment:$('#eP .active').dataset.v,notes:$('#eN').value.trim()};
+    const d={id:e.id,date:$('#eD').value||today(),client:$('#eCl').value.trim(),phone:$('#ePh').value.trim(),work:$('#eW').value,qty:$('#eQ').value,notes:$('#eN').value.trim(),status:$('#eS .active').dataset.v,links:pendingLink('eLk')};
+    if(M){ d.changes=$('#eC').value; d.payment=$('#eP .active').dataset.v; d.rate=RATE?$('#eR').value.trim():''; }
     if(!d.client) return toast('Client ka naam likho',true); if(!d.work) return toast('Work type chuno',true);
     const b=$('#eGo'); b.disabled=true; b.textContent='Saving…';
     if(await run(id?'updateEntry':'addEntry',d,id?'Work updated':'Work added')) closeModal(); else { b.disabled=false; b.textContent='Try again'; }
   };
 }
-
 /* ---------- client (profile / pricing / work) ---------- */
 let CD=null;
 function openClient(name,tab){
   const c=name?clientList().find(x=>low(x.name)===low(name)):null;
   const prices={}; (S.data.clientPrices||[]).filter(p=>c&&low(p.client)===low(c.name)).forEach(p=>prices[p.service]=p.price);
   CD={old:c?c.name:'',name:c?c.name:'',phone:c?c.phone:'',notes:c?c.notes||'':'',photo:undefined,curPhoto:c?c.photo:'',discount:c&&+c.discount?+c.discount:'',prices,
-    mode:c&&hasSpecial(c.name)?'special':'standard',tab:tab||'profile',stats:c};
+    mode:c&&hasSpecial(c.name)?'special':'standard',tab:(tab==='pricing'&&!canManage())?'profile':(tab||'profile'),stats:c};
+  LKS.cLk=parseLinks(c?c.links:'');
   drawClient();
 }
 function drawClient(){
   const c=CD, n=c.name||'New client', ph=c.photo!==undefined?c.photo:c.curPhoto;
-  const tabs=[['profile','Profile'],['pricing','Pricing'],...(c.old?[['work','Work']]:[])];
+  const tabs=[['profile','Profile'],['files','Files & links'],...(canManage()?[['pricing','Pricing']]:[]),...(c.old?[['work','Work']]:[])];
+  const ren=!c.old||canManage();
   let body='';
   if(c.tab==='profile'){
     body=`<div class="ph-edit"><div data-act="pickPhoto">${avatar(n,'xl',ph||'')}</div><div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><button class="btn sm" data-act="pickPhoto">${ic('cam')}${ph?'Change photo':'Add photo'}</button>${ph?'<button class="btn-link" data-act="removePhoto">Remove photo</button>':''}<small class="muted">Phone ki gallery ya camera se</small></div></div>
-    <div class="field"><label>Client name</label><input class="inp" id="cN" value="${esc(c.name)}" placeholder="e.g. Brew Cafe"></div>
+    <div class="field"><label>Client name</label><input class="inp" id="cN" value="${esc(c.name)}" placeholder="e.g. Brew Cafe" ${ren?'':'readonly title="Naam sirf owner badal sakta hai"'}></div>
     <div class="field"><label>Phone (WhatsApp)</label><input class="inp" id="cP" inputmode="tel" value="${esc(c.phone)}" placeholder="10 digit"></div>
     <div class="field"><label>Notes</label><textarea class="inp" id="cNo" placeholder="Address, Insta handle, kuch bhi">${esc(c.notes)}</textarea></div>`;
+  } else if(c.tab==='files'){
+    const ws=c.old?S.data.entries.filter(e=>low(e.client)===low(c.old)&&parseLinks(e.links).length).sort((a,b)=>b.date.localeCompare(a.date)):[];
+    body=`${linksEditor('cLk',LKS.cLk,'Client ke files','Brand kit, logo, Drive folder, reference')}
+    <div class="lk-sec"><h4>${ic('work')}Kaam ke files<small>Har work entry mein daale gaye links</small></h4>
+    ${ws.length?ws.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:6px"><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><span class="muted">${dLabel(e.date)} · ${esc(byOf(e))}</span></div><div class="lk-list">${parseLinks(e.links).map(l=>linkChip(l)).join('')}</div></div>`).join(''):'<span class="muted" style="font-size:12.5px">Is client ke kisi kaam mein abhi link nahi hai.</span>'}</div>`;
   } else if(c.tab==='pricing'){
     const d=+c.discount||0;
     body=`<div class="field"><label>Is client ko kaunsa price lagega?</label><div class="seg"><button class="segb ${c.mode==='standard'?'active':''}" data-act="cMode" data-arg="standard">Standard (sabke jaisa)</button><button class="segb ${c.mode==='special'?'active':''}" data-act="cMode" data-arg="special">Special price</button></div></div>`+
@@ -958,15 +1138,15 @@ function drawClient(){
     </tbody></table></div></div><small class="muted">Khaali chhodo = ${d?d+'% discount wala':'standard'} price (halka likha hua). Sirf jahan alag price chahiye wahan likho.</small>`);
   } else {
     const s=c.stats, es=S.data.entries.filter(e=>low(e.client)===low(c.old)).sort((a,b)=>b.date.localeCompare(a.date));
-    body=`<div class="mini"><div><span>Total work</span><b>${inr(s.total)}</b></div><div><span>Received</span><b>${inr(s.paid)}</b></div><div><span>Due</span><b style="color:var(--coral)">${inr(s.due)}</b></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${s.due>0&&s.phone?`<a class="btn wa sm" target="_blank" href="${waLink(s.phone,remind(s.name,s.due))}">${ic('wa')}Payment reminder</a>`:''}<button class="btn sm" data-act="addEntryFor" data-arg="${esc(c.old)}">${ic('plus')}Add work</button><button class="btn sm" data-act="pdf" data-arg="${esc(c.old)}">${ic('print')}Rate card PDF</button></div>
-    <div class="home-list">${es.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}"><div class="grow"><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${dLabel(e.date)} · ${esc(e.status)}</small></div><span class="amt">${inr(e.amount)}</span>${payPill(e)}</div>`).join('')||'<div class="empty">Abhi koi kaam nahi</div>'}</div>`;
+    body=`${money()?`<div class="mini"><div><span>Total work</span><b>${inr(s.total)}</b></div><div><span>Received</span><b>${inr(s.paid)}</b></div><div><span>Due</span><b style="color:var(--coral)">${inr(s.due)}</b></div></div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${money()&&s.due>0&&s.phone?`<a class="btn wa sm" target="_blank" href="${waLink(s.phone,remind(s.name,s.due))}">${ic('wa')}Payment reminder</a>`:''}<button class="btn sm" data-act="addEntryFor" data-arg="${esc(c.old)}">${ic('plus')}Add work</button>${canManage()?`<button class="btn sm" data-act="pdf" data-arg="${esc(c.old)}">${ic('print')}Price list PDF</button>`:''}</div>
+    <div class="home-list">${es.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}"><div class="grow"><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${dLabel(e.date)} · ${esc(e.status)} · ${esc(byOf(e))}</small></div>${parseLinks(e.links).length?`<span class="clip">${ic('link')}${parseLinks(e.links).length}</span>`:''}${money()?`<span class="amt">${inr(e.amount)}</span>${payPill(e)}`:statusPill(e)}</div>`).join('')||'<div class="empty">Abhi koi kaam nahi</div>'}</div>`;
   }
-  modal(mHead(esc(n),c.old?pricingLabel(c.old).replace(/<[^>]+>/g,'').trim()+' pricing':'Naya client',avatar(n,'lg',ph||''))+
+  modal(mHead(esc(n),c.old?(canManage()?pricingLabel(c.old).replace(/<[^>]+>/g,'').trim()+' pricing':esc(c.phone||'Client')):'Naya client',avatar(n,'lg',ph||''))+
     `<div style="padding:12px 20px 0"><div class="tabs">${tabs.map(([k,t])=>`<button class="tab ${c.tab===k?'active':''}" data-act="cTabM" data-arg="${k}">${t}</button>`).join('')}</div></div>
     <div class="m-body">${body}</div>
-    <div class="m-foot">${c.old&&clientProfile(c.old)?`<button class="btn danger" data-act="delClient" data-arg="${esc(c.old)}">${ic('trash')}</button>`:''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="cGo">${c.old?'Save client':'Add client'}</button></div>`);
-  bindClient();
+    <div class="m-foot">${c.old&&clientProfile(c.old)&&canManage()?`<button class="btn danger" data-act="delClient" data-arg="${esc(c.old)}">${ic('trash')}</button>`:''}<span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="cGo">${c.old?'Save client':'Add client'}</button></div>`);
+  bindClient(); if(c.tab==='files') bindLinks('cLk');
 }
 function saveTxt(std,price){ if(std==null||price==null||isNaN(price)) return '<span class="muted">-</span>'; const d=std-price; return d>0?`<span class="save-badge">−${inr(d)}</span>`:d<0?`<span class="down">+${inr(-d)}</span>`:'<span class="muted">-</span>'; }
 function readClientForm(){
@@ -981,7 +1161,9 @@ function bindClient(){
     readClientForm(); const c=CD;
     if(!c.name) return toast('Client ka naam likho',true);
     if(c.mode==='special'&&c.discount!==''&&(isNaN(+c.discount)||+c.discount<0||+c.discount>100)) return toast('Discount 0 se 100 ke beech likho',true);
-    const d={oldName:c.old,name:c.name,phone:c.phone,notes:c.notes,discount:c.mode==='special'?(+c.discount||''):'',prices:c.mode==='special'?Object.entries(c.prices).filter(([,v])=>isNum(v)).map(([service,price])=>({service,price:+price})):[]};
+    if($('#cLkU')) pendingLink('cLk');
+    const d={oldName:c.old,name:c.name,phone:c.phone,notes:c.notes,links:LKS.cLk||[]};
+    if(canManage()){ d.discount=c.mode==='special'?(+c.discount||''):''; d.prices=c.mode==='special'?Object.entries(c.prices).filter(([,v])=>isNum(v)).map(([service,price])=>({service,price:+price})):[]; }
     if(c.photo!==undefined) d.photo=c.photo;
     const b=$('#cGo'); b.disabled=true; b.textContent='Saving…';
     if(await run('saveClient',d,c.old?'Client saved':'Client added')) closeModal(); else { b.disabled=false; b.textContent='Try again'; }
@@ -1012,7 +1194,7 @@ function pickClientPrice(){
 /* ---------- settings (Nodevers style) ---------- */
 let SD=null;
 const SWATCH=['#6F8FE8','#111318','#E01F26','#2FA36B','#0891B2','#8B6FD6','#D97706','#DB2777'];
-function openSettings(sec){ SD={sec:sec||'brand',brandName:set('brandName'),ownerName:set('ownerName'),contactPhone:set('contactPhone'),contactEmail:set('contactEmail'),instagram:set('instagram'),website:set('website'),pdfNote:set('pdfNote'),accent:set('accent'),monthlyTarget:set('monthlyTarget'),widgets:widgets(),url:CFG.url}; drawSettings(); }
+function openSettings(sec){ if(!isOwner()) return moreMenu(); SD={sec:sec||'brand',brandName:set('brandName'),ownerName:set('ownerName'),contactPhone:set('contactPhone'),contactEmail:set('contactEmail'),instagram:set('instagram'),website:set('website'),pdfNote:set('pdfNote'),accent:set('accent'),monthlyTarget:set('monthlyTarget'),widgets:widgets(),url:CFG.url}; drawSettings(); }
 function drawSettings(){
   const L=[['brand','Branding & profile',`${esc(SD.brandName)} · ${set('logo')?'logo set':'no logo yet'}`,'palette','#E8707E'],['look','Appearance','Colour, light / dark','layout','#8B6FD6'],['dash','Dashboard','Target, home cards','home','#2FA36B'],['conn','Connection',S.demo?'Demo mode':'Google Sheet connected','link','#C58B2B']];
   const W=SD.widgets, WL={target:'Target card',cards:'Summary cards',charts:'Charts',todo:'Do this now + Recent work',dues:'Payment pending'};
@@ -1032,7 +1214,9 @@ function drawSettings(){
     <div>${Object.keys(WL).map(k=>`<div class="tg"><span>${WL[k]}</span><label class="sw"><input type="checkbox" data-wg="${k}" ${W[k]?'checked':''}><i></i></label></div>`).join('')}</div>`;
   if(SD.sec==='conn') pane=`<div class="set-pt"><b>Connection</b><small>${S.demo?'Demo mode chal raha hai':'Google Sheet se connected'}</small></div>
     <div class="field"><label>Apps Script URL</label><input class="inp" id="stU" value="${esc(SD.url)}"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="sheet">${ic('sheet')}Open sheet</button><button class="btn sm" data-act="refresh">${ic('refresh')}Refresh data</button><button class="btn sm danger" data-act="logout">${ic('logout')}Log out</button></div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="sheet">${ic('sheet')}Open sheet</button><button class="btn sm" data-act="refresh">${ic('refresh')}Refresh data</button><button class="btn sm danger" data-act="logout">${ic('logout')}Log out</button></div>
+    <div class="set-pt" style="margin-top:6px"><b style="font-size:15px">Team login link</b><small>Team ko ye link do, unhe URL nahi daalna padega. Login sirf PIN se.</small></div>
+    <div class="share"><code>${esc(joinLink())}</code></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="shareJoin">${ic('link')}Share link</button><button class="btn sm" data-act="go" data-arg="team">${ic('users')}Team members</button></div>`;
   modal(mHead('Settings')+`<div class="set-wrap"><div class="set-list">${L.map(([k,t,s,i,c])=>`<button class="set-h ${SD.sec===k?'on':''}" data-act="setSec" data-arg="${k}"><span class="set-ic" style="--c:${c}">${ic(i)}</span><div style="min-width:0"><b>${t}</b><small>${s}</small></div></button>`).join('')}</div>
     <div class="set-pane">${pane}<div style="margin-top:auto;display:flex;justify-content:flex-end"><button class="btn primary" id="stGo">Save</button></div></div></div>`,'wide');
   const a=$('#stA'); if(a) a.oninput=()=>{ SD.accent=a.value; document.documentElement.style.setProperty('--acc',a.value); $$('.swc').forEach(s=>s.classList.remove('on')); };
@@ -1047,8 +1231,8 @@ async function saveSettings(){
 
 /* ---------- small menus ---------- */
 function entryMenu(id,btn){
-  $$('.menu').forEach(m=>m.remove()); const e=S.data.entries.find(x=>x.id===id), r=btn.getBoundingClientRect(), m=document.createElement('div'); m.className='menu';
-  m.innerHTML=`<button data-act="editEntry" data-arg="${id}">${ic('edit')}Edit</button><button data-act="togglePaid" data-arg="${id}">${ic('wallet')}Mark ${e.payment==='Paid'?'unpaid':'paid'}</button>${e.phone?`<button data-act="waEntry" data-arg="${id}">${ic('wa')}WhatsApp</button>`:''}<button data-act="openClient" data-arg="${esc(e.client)}">${ic('users')}Client profile</button><button class="del" data-act="delEntry" data-arg="${id}">${ic('trash')}Delete</button>`;
+  $$('.menu').forEach(m=>m.remove()); const e=S.data.entries.find(x=>x.id===id), r=btn.getBoundingClientRect(), m=document.createElement('div'), own=mine(e); m.className='menu';
+  m.innerHTML=`<button data-act="editEntry" data-arg="${id}">${ic(own?'edit':'info')}${own?'Edit':'View details'}</button>${parseLinks(e.links).length?`<button data-act="linksMenu" data-arg="${id}">${ic('link')}Files & links (${parseLinks(e.links).length})</button>`:''}${own&&money()?`<button data-act="togglePaid" data-arg="${id}">${ic('wallet')}Mark ${e.payment==='Paid'?'unpaid':'paid'}</button>`:''}${e.phone?`<button data-act="waEntry" data-arg="${id}">${ic('wa')}WhatsApp</button>`:''}<button data-act="openClient" data-arg="${esc(e.client)}">${ic('users')}Client profile</button>${own?`<button class="del" data-act="delEntry" data-arg="${id}">${ic('trash')}Delete</button>`:''}`;
   document.body.appendChild(m); m.style.top=Math.min(innerHeight-m.offsetHeight-10,r.bottom+6)+'px'; m.style.left=Math.max(10,Math.min(innerWidth-m.offsetWidth-10,r.right-m.offsetWidth))+'px';
 }
 function dueList(){
@@ -1056,17 +1240,15 @@ function dueList(){
   modal(mHead('Payment pending',`${dues.length} clients · ${inr(dues.reduce((s,c)=>s+c.due,0))}`)+`<div class="m-body"><div class="home-list">${dues.map(c=>`<div class="home-li" data-act="openClient" data-arg="${esc(c.name)}" data-tab="work">${avatar(c.name,'sm')}<div class="grow"><b>${esc(c.name)}</b><small>${esc(c.phone||'No phone')}</small></div><span class="amt" style="color:var(--coral)">${inr(c.due)}</span>${c.phone?`<a class="btn wa sm" data-stop="1" target="_blank" href="${waLink(c.phone,remind(c.name,c.due))}">${ic('wa')}Remind</a>`:''}</div>`).join('')||'<div class="empty">Sab payment clear hai 🎉</div>'}</div></div>`,'narrow');
 }
 function moreMenu(){
-  modal(mHead('More')+`<div class="m-body"><div class="home-list">
-    <div class="home-li" data-act="go" data-arg="plans">${ic('box')}<div class="grow"><b>Plans</b></div></div>
-    <div class="home-li" data-act="pdf">${ic('print')}<div class="grow"><b>Services price list PDF</b><small>Sirf services, plans nahi</small></div></div>
-    <div class="home-li" data-act="settings" data-arg="brand">${ic('gear')}<div class="grow"><b>Settings</b><small>Logo, naam, colour, target</small></div></div>
-    <div class="home-li" data-act="sheet">${ic('sheet')}<div class="grow"><b>Open Google Sheet</b></div></div>
-    <div class="home-li" data-act="theme">${ic(document.documentElement.dataset.theme==='dark'?'sun':'moon')}<div class="grow"><b>Dark / Light</b></div></div>
-    <div class="home-li" data-act="refresh">${ic('refresh')}<div class="grow"><b>Refresh data</b></div></div>
-    <div class="home-li" data-act="logout" style="color:var(--coral)">${ic('logout')}<div class="grow"><b>Log out</b></div></div></div></div>`,'narrow');
+  const me=ME(), it=(act,arg,i,t,sm,st)=>`<div class="home-li" data-act="${act}" ${arg?`data-arg="${arg}"`:''} ${st||''}>${ic(i)}<div class="grow"><b>${t}</b>${sm?`<small>${sm}</small>`:''}</div></div>`;
+  modal(mHead('More')+`<div class="m-body"><div class="who-me" style="padding:0 0 8px">${avatar(me.name)}<div><b style="font-size:14px">${esc(me.name)}</b><small>${roleLabel(me.role)}${me.role==='member'?' · '+(me.view==='all'?'sab ka kaam':'apna kaam'):''}</small></div></div><div class="home-list">
+    ${canManage()?it('go','plans','box','Plans')+it('pdf','','print','Services price list PDF','Sirf services, plans nahi'):''}
+    ${isOwner()?it('go','team','users','Team','Members, PIN, access')+it('settings','brand','gear','Settings','Logo, naam, colour, target'):''}
+    ${S.data.sheetUrl?it('sheet','','sheet','Open Google Sheet'):''}
+    ${it('theme','',document.documentElement.dataset.theme==='dark'?'sun':'moon','Dark / Light')}
+    ${it('refresh','','refresh','Refresh data')}
+    ${it('logout','','logout','Log out','','style="color:var(--coral)"')}</div></div>`,'narrow');
 }
-
-
 /* ================= RATE CARD PDF ================= */
 let PD=null;
 function openPdf(client){
@@ -1194,10 +1376,10 @@ const A={
   svcTab:t=>{ S.svcTab=t; go('services'); }, svcTabOnly:t=>{ S.svcTab=t; render(); },
   addEntry:()=>openEntry(), editEntry:id=>openEntry(id),
   addEntryFor:n=>{ const c=clientList().find(x=>low(x.name)===low(n))||{}; openEntry(null,{client:n,phone:c.phone||''}); },
-  delEntry:async id=>{ const e=S.data.entries.find(x=>x.id===id); if(await confirmBox('Delete work?',`${e.client} · ${e.work} · ${inr(e.amount)}. Sheet se bhi hat jayega.`)) run('deleteEntry',{id},'Deleted'); },
-  togglePaid:id=>{ const e=S.data.entries.find(x=>x.id===id); run('updateEntry',{...e,rate:'',payment:e.payment==='Paid'?'Unpaid':'Paid'},'Payment updated'); },
-  cycleStatus:id=>{ const e=S.data.entries.find(x=>x.id===id), o=['Pending','In progress','Delivered']; run('updateEntry',{...e,rate:'',status:o[(o.indexOf(e.status)+1)%3]},'Status updated'); },
-  markDone:id=>{ const e=S.data.entries.find(x=>x.id===id); run('updateEntry',{...e,rate:'',status:'Delivered'},'Delivered ✓'); },
+  delEntry:async id=>{ const e=S.data.entries.find(x=>x.id===id); if(!mine(e)) return toast('Ye kaam kisi aur ka hai',true); if(await confirmBox('Delete work?',`${e.client} · ${e.work}${money()?' · '+inr(e.amount):''}. Sheet se bhi hat jayega.`)) run('deleteEntry',{id},'Deleted'); },
+  togglePaid:id=>{ const e=S.data.entries.find(x=>x.id===id); if(!mine(e)||!money()) return; run('updateEntry',{...e,rate:'',payment:e.payment==='Paid'?'Unpaid':'Paid'},'Payment updated'); },
+  cycleStatus:id=>{ const e=S.data.entries.find(x=>x.id===id), o=['Pending','In progress','Delivered']; if(!mine(e)) return toast('Ye kaam kisi aur ka hai',true); run('updateEntry',{...e,rate:'',status:o[(o.indexOf(e.status)+1)%3]},'Status updated'); },
+  markDone:id=>{ const e=S.data.entries.find(x=>x.id===id); if(!mine(e)) return toast('Ye kaam kisi aur ka hai',true); run('updateEntry',{...e,rate:'',status:'Delivered'},'Delivered ✓'); },
   waEntry:id=>{ const e=S.data.entries.find(x=>x.id===id); window.open(waLink(e.phone,remind(e.client,e.amount)),'_blank'); },
   entryMenu:(id,el)=>entryMenu(id,el), exportCsv:()=>exportCsv(),
   addClient:()=>openClient(), openClient:(n,el)=>openClient(n,el&&el.dataset.tab),
@@ -1212,7 +1394,14 @@ const A={
   settings:s=>openSettings(s), setSec:s=>{ readSettings(); SD.sec=s; drawSettings(); },
   accent:c=>{ SD.accent=c; document.documentElement.style.setProperty('--acc',c); $$('.swc').forEach(s=>s.classList.toggle('on',s.dataset.arg===c)); },
   pickLogo:()=>pick('logo'), resetLogo:async()=>{ readSettings(); await run('saveSettings',{logo:''},'Logo removed'); openSettings('brand'); },
-  dueList:()=>dueList(), more:()=>moreMenu(), pdf:n=>openPdf(n), logout:()=>logout()
+  dueList:()=>dueList(), more:()=>moreMenu(), pdf:n=>openPdf(n), logout:()=>logout(),
+  lkAdd:id=>lkAdd(id), lkDel:a=>{ const [id,i]=a.split(':'); (LKS[id]||[]).splice(+i,1); $('#'+id+'L').innerHTML=lkListHtml(id); },
+  linksMenu:(id,el)=>linksMenu(id,el),
+  addMember:()=>openMember(), editMember:n=>openMember(n),
+  mRole:r=>{ readMember(); MD.role=r; drawMember(); }, mView:v=>{ readMember(); MD.view=v; drawMember(); },
+  genPin:()=>{ const a=new Uint32Array(1); (window.crypto||{getRandomValues:x=>{x[0]=Math.random()*1e9}}).getRandomValues(a); $('#tPin').value=String(100000+a[0]%900000); },
+  delMember:async n=>{ if(await confirmBox('Remove member?',`${n} ab login nahi kar payega. Unka add kiya hua kaam sheet mein rahega.`,'Remove')) run('deleteMember',{name:n},'Member removed'); },
+  shareJoin:()=>shareJoin()
 };
 document.addEventListener('click',ev=>{
   if(!ev.target.closest('.menu')) $$('.menu').forEach(m=>m.remove());
@@ -1231,8 +1420,9 @@ document.addEventListener('input',ev=>{
   if(t.id==='cq'){ S.cq=t.value; const pos=t.selectionStart; render(); const n=$('#cq'); n.focus(); n.setSelectionRange(pos,pos); }
   if(t.id==='gq'){ S.f.q=t.value; S.f.tab='all'; if(S.view!=='work'){ go('work'); } else $('#wt').innerHTML=workTable(); const w=$('#wq'); if(w) w.value=t.value; }
 });
-document.addEventListener('change',ev=>{ const t=ev.target; if(t.id==='wm'){ S.f.month=t.value; $('#wt').innerHTML=workTable(); } if(t.id==='wc'){ S.f.client=t.value; $('#wt').innerHTML=workTable(); } });
+document.addEventListener('change',ev=>{ const t=ev.target; if(t.id==='wm'){ S.f.month=t.value; $('#wt').innerHTML=workTable(); } if(t.id==='wc'){ S.f.client=t.value; $('#wt').innerHTML=workTable(); } if(t.id==='wb'){ S.f.by=t.value; $('#wt').innerHTML=workTable(); } });
 document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&e.target.closest&&e.target.closest('.lk-add')) return;
   if(e.key==='Escape'){ closeModal(); SD=null; $$('.menu').forEach(m=>m.remove()); }
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); const g=$('#gq'); if(g&&g.offsetParent) g.focus(); else go('work'); }
 });
@@ -1248,11 +1438,13 @@ async function login(){
   catch(e){ $('#lErr').textContent=e.message==='Wrong PIN'?'PIN galat hai':'Connect nahi hua: '+e.message; if(!DEFAULT_API_URL) $('#urlFld').hidden=false; }
   finally{ b.disabled=false; b.textContent='Sign in'; }
 }
-function logout(){ try{ ls&&ls.removeItem('vx_pin'); ss&&ss.removeItem('vx_pin'); }catch(e){} CFG.pin=''; S.demo=false; S.data=clone(EMPTY); closeModal(); showLogin(); $('#lPin').value=''; }
+function logout(){ try{ ls&&ls.removeItem('vx_pin'); ss&&ss.removeItem('vx_pin'); ls&&ls.removeItem('vx_brand'); }catch(e){} CFG.pin=''; S.demo=false; S.view='home'; S.data=clone(EMPTY); closeModal(); showLogin(); $('#lPin').value=''; }
 $('#lBtn').onclick=login; $('#lPin').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
 $('#demoBtn').onclick=()=>{ S.demo=true; S.data=demoData(); showApp(); };
 (async function boot(){
   applyTheme(); loadCfg();
+  const jm=location.hash.match(/join=([A-Za-z0-9_-]+)/);
+  if(jm){ try{ const u=decodeURIComponent(escape(atob(jm[1].replace(/-/g,'+').replace(/_/g,'/')))); if(/^https:\/\/script\.google(usercontent)?\.com\//.test(u)){ CFG.url=u; lset('vx_url',u); } }catch(e){} history.replaceState(null,'',location.pathname+location.search); }
   try{ S.data.settings=JSON.parse((ls&&ls.getItem('vx_brand'))||'{}')||{}; }catch(e){}
   applyBrand();
   if(new URLSearchParams(location.search).has('demo')){ S.demo=true; S.data=demoData(); return showApp(); }
