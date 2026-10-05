@@ -490,6 +490,7 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></symbol>
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/></symbol>
   <symbol id="i-percent" viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></symbol>
 </svg>
 
@@ -532,7 +533,7 @@ const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0])
 const isNum = v => v!=='' && v!=null && !isNaN(Number(v));
 function monthKeys(n){ const d=new Date(), o=[]; for(let i=n-1;i>=0;i--) o.push(ymd(new Date(d.getFullYear(),d.getMonth()-i,1)).slice(0,7)); return o; }
 function waLink(phone,text){ let p=String(phone||'').replace(/\D/g,''); if(p.length===10) p='91'+p; return 'https://wa.me/'+p+'?text='+encodeURIComponent(text); }
-const set = k => { const v=S.data.settings||{}, D={brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:''}; return (v[k]===undefined||v[k]==='')?D[k]:v[k]; };
+const set = k => { const v=S.data.settings||{}, D={brandName:'Vertex Media',ownerName:'Shivam',accent:'#6F8FE8',monthlyTarget:50000,logo:'',contactPhone:'',contactEmail:'',instagram:'',website:'',pdfNote:'Any changes requested after approval will be charged separately.'}; return (v[k]===undefined||v[k]==='')?D[k]:v[k]; };
 function widgets(){ let w={}; try{ w=JSON.parse(set('widgets2')||'{}')||{}; }catch(e){} return Object.assign({target:true,cards:true,charts:true,todo:true,dues:true},w); }
 function toast(msg,bad){ const t=document.createElement('div'); t.className='toast'+(bad?' err':''); t.textContent=msg; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),2600); }
 let busy=0; function loading(on){ busy+=on?1:-1; let l=$('#loader'); if(busy>0&&!l){ l=document.createElement('div'); l.id='loader'; l.className='loader'; document.body.appendChild(l);} if(busy<=0){ busy=0; l&&l.remove(); } }
@@ -848,7 +849,7 @@ function vServices(){
       <td><div class="acts"><button class="ibtn sm" title="Edit">${ic('edit')}</button></div></td></tr>`).join('')}
     </tbody></table></div></div>`:`<div class="glass empty">Abhi kisi client ko special price nahi diya.<br><br><button class="btn primary" data-act="pickClientPrice">${ic('plus')}Special price set karo</button></div>`;
   }
-  return pageH('Pricing','Services & Prices','Standard price sabke liye. Jisko kam dena hai, uska special price set karo.',`<button class="btn" data-act="pickClientPrice">${ic('percent')}Client ka price set karo</button><button class="btn primary" data-act="addService">${ic('plus')}Add Service</button>`)+flow+tabs+body;
+  return pageH('Pricing','Services & Prices','Standard price sabke liye. Jisko kam dena hai, uska special price set karo.',`<button class="btn" data-act="pdf">${ic('print')}Export PDF</button><button class="btn" data-act="pickClientPrice">${ic('percent')}Client ka price set karo</button><button class="btn primary" data-act="addService">${ic('plus')}Add Service</button>`)+flow+tabs+body;
 }
 
 /* ================= PLANS ================= */
@@ -858,7 +859,7 @@ function vPlans(){
   const feat=P.map((r,k)=>k).filter(k=>k>0&&k!==pi&&k!==ai&&k!==bi&&k<11);
   const inp=(r,c)=>`<input data-pr="${r}" data-pc="${c}" value="${esc(P[r][c])}">`;
   return pageH('Packages','Plans',E?'Text badlo, phir Save dabao. Price "Services & Prices" se badalta hai.':'Clients ko dikhane ke liye 3 monthly plans.',
-    E?`<button class="btn" data-act="planEdit" data-arg="0">Cancel</button><button class="btn primary" data-act="savePlans">Save plans</button>`:`<button class="btn" data-act="go" data-arg="services">${ic('tag')}Edit prices</button><button class="btn primary" data-act="planEdit" data-arg="1">${ic('edit')}Edit plans</button>`)+
+    E?`<button class="btn" data-act="planEdit" data-arg="0">Cancel</button><button class="btn primary" data-act="savePlans">Save plans</button>`:`<button class="btn" data-act="pdf">${ic('print')}Export PDF</button><button class="btn" data-act="go" data-arg="services">${ic('tag')}Edit prices</button><button class="btn primary" data-act="planEdit" data-arg="1">${ic('edit')}Edit plans</button>`)+
   `<div class="pgrid">${names.map((n,i)=>`<div class="plan glass ${i===1?'hot':''}">
     <div class="nm">${E?inp(0,i+1):esc(n)}${!E&&i===1?' · Popular':''}</div>
     <div class="pr">${esc(pi>=0?P[pi][i+1]:'')}<small> /month</small></div>
@@ -955,7 +956,7 @@ function drawClient(){
   } else {
     const s=c.stats, es=S.data.entries.filter(e=>low(e.client)===low(c.old)).sort((a,b)=>b.date.localeCompare(a.date));
     body=`<div class="mini"><div><span>Total work</span><b>${inr(s.total)}</b></div><div><span>Received</span><b>${inr(s.paid)}</b></div><div><span>Due</span><b style="color:var(--coral)">${inr(s.due)}</b></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${s.due>0&&s.phone?`<a class="btn wa sm" target="_blank" href="${waLink(s.phone,remind(s.name,s.due))}">${ic('wa')}Payment reminder</a>`:''}<button class="btn sm" data-act="addEntryFor" data-arg="${esc(c.old)}">${ic('plus')}Add work</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${s.due>0&&s.phone?`<a class="btn wa sm" target="_blank" href="${waLink(s.phone,remind(s.name,s.due))}">${ic('wa')}Payment reminder</a>`:''}<button class="btn sm" data-act="addEntryFor" data-arg="${esc(c.old)}">${ic('plus')}Add work</button><button class="btn sm" data-act="pdf" data-arg="${esc(c.old)}">${ic('print')}Rate card PDF</button></div>
     <div class="home-list">${es.map(e=>`<div class="home-li" data-act="editEntry" data-arg="${e.id}"><div class="grow"><b>${esc(e.work)}${e.qty>1?' × '+e.qty:''}</b><small>${dLabel(e.date)} · ${esc(e.status)}</small></div><span class="amt">${inr(e.amount)}</span>${payPill(e)}</div>`).join('')||'<div class="empty">Abhi koi kaam nahi</div>'}</div>`;
   }
   modal(mHead(esc(n),c.old?pricingLabel(c.old).replace(/<[^>]+>/g,'').trim()+' pricing':'Naya client',avatar(n,'lg',ph||''))+
@@ -1008,14 +1009,18 @@ function pickClientPrice(){
 /* ---------- settings (Nodevers style) ---------- */
 let SD=null;
 const SWATCH=['#6F8FE8','#111318','#E01F26','#2FA36B','#0891B2','#8B6FD6','#D97706','#DB2777'];
-function openSettings(sec){ SD={sec:sec||'brand',brandName:set('brandName'),ownerName:set('ownerName'),accent:set('accent'),monthlyTarget:set('monthlyTarget'),widgets:widgets(),url:CFG.url}; drawSettings(); }
+function openSettings(sec){ SD={sec:sec||'brand',brandName:set('brandName'),ownerName:set('ownerName'),contactPhone:set('contactPhone'),contactEmail:set('contactEmail'),instagram:set('instagram'),website:set('website'),pdfNote:set('pdfNote'),accent:set('accent'),monthlyTarget:set('monthlyTarget'),widgets:widgets(),url:CFG.url}; drawSettings(); }
 function drawSettings(){
   const L=[['brand','Branding & profile',`${esc(SD.brandName)} · ${set('logo')?'logo set':'no logo yet'}`,'palette','#E8707E'],['look','Appearance','Colour, light / dark','layout','#8B6FD6'],['dash','Dashboard','Target, home cards','home','#2FA36B'],['conn','Connection',S.demo?'Demo mode':'Google Sheet connected','link','#C58B2B']];
   const W=SD.widgets, WL={target:'Target card',cards:'Summary cards',charts:'Charts',todo:'Do this now + Recent work',dues:'Payment pending'};
   let pane='';
   if(SD.sec==='brand') pane=`<div class="set-pt"><b>Branding & profile</b><small>Website name, logo, aur tumhara naam</small></div>
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div class="up-box" data-act="pickLogo">${set('logo')?`<img src="${esc(set('logo'))}" alt="">`:`${ic('cam')}<br>Logo`}</div>${set('logo')?'<button class="btn-link" data-act="resetLogo">Remove</button>':''}</div>
-    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:200px"><div class="field"><label>Website name</label><input class="inp" id="stB" value="${esc(SD.brandName)}"></div><div class="field"><label>Your name (profile)</label><input class="inp" id="stO" value="${esc(SD.ownerName)}"></div></div></div>`;
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:200px"><div class="field"><label>Website name</label><input class="inp" id="stB" value="${esc(SD.brandName)}"></div><div class="field"><label>Your name (profile)</label><input class="inp" id="stO" value="${esc(SD.ownerName)}"></div></div></div>
+    <div class="set-pt" style="margin-top:6px"><b style="font-size:15px">Contact (PDF rate card pe dikhega)</b><small>Khaali chhodo to nahi dikhega</small></div>
+    <div class="f2"><div class="field"><label>Phone / WhatsApp</label><input class="inp" id="stPh" value="${esc(SD.contactPhone)}" placeholder="+91 70215 08201"></div><div class="field"><label>Email</label><input class="inp" id="stEm" value="${esc(SD.contactEmail)}" placeholder="you@email.com"></div></div>
+    <div class="f2"><div class="field"><label>Instagram</label><input class="inp" id="stIg" value="${esc(SD.instagram)}" placeholder="@__vertexmedia_"></div><div class="field"><label>Website</label><input class="inp" id="stWb" value="${esc(SD.website)}" placeholder="optional"></div></div>
+    <div class="field"><label>Note at bottom of PDF</label><input class="inp" id="stNt" value="${esc(SD.pdfNote)}" placeholder="Any changes after approval will be charged separately."></div>`;
   if(SD.sec==='look') pane=`<div class="set-pt"><b>Appearance</b><small>Active tabs, buttons aur charts ka colour</small></div>
     <div class="field"><label>Theme colour</label><div class="sw-row">${SWATCH.map(c=>`<button class="swc ${low(c)===low(SD.accent)?'on':''}" style="background:${c}" data-act="accent" data-arg="${c}" title="${c}"></button>`).join('')}<label class="swc" style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)" title="Custom"><input type="color" id="stA" value="${esc(SD.accent)}"></label></div></div>
     <div class="field"><label>Mode (is device pe)</label><div class="seg" style="max-width:300px">${['light','dark'].map(t=>`<button class="segb ${(lget('vx_theme')||'light')===t?'active':''}" data-act="setTheme" data-arg="${t}">${t==='light'?'Light':'Dark'}</button>`).join('')}</div></div>`;
@@ -1031,10 +1036,10 @@ function drawSettings(){
   $$('[data-wg]').forEach(i=>i.onchange=()=>{ SD.widgets[i.dataset.wg]=i.checked; });
   $('#stGo').onclick=saveSettings;
 }
-function readSettings(){ if($('#stB')) SD.brandName=$('#stB').value.trim()||'Vertex Media'; if($('#stO')) SD.ownerName=$('#stO').value.trim()||'Shivam'; if($('#stT')) SD.monthlyTarget=+$('#stT').value||0; if($('#stU')) SD.url=$('#stU').value.trim(); }
+function readSettings(){ [['stPh','contactPhone'],['stEm','contactEmail'],['stIg','instagram'],['stWb','website'],['stNt','pdfNote']].forEach(([i,k])=>{ const el=document.getElementById(i); if(el) SD[k]=el.value.trim(); }); if($('#stB')) SD.brandName=$('#stB').value.trim()||'Vertex Media'; if($('#stO')) SD.ownerName=$('#stO').value.trim()||'Shivam'; if($('#stT')) SD.monthlyTarget=+$('#stT').value||0; if($('#stU')) SD.url=$('#stU').value.trim(); }
 async function saveSettings(){
   readSettings(); if(SD.url&&SD.url!==CFG.url){ CFG.url=SD.url; saveCfg(!!(ls&&ls.getItem('vx_pin'))); }
-  if(await run('saveSettings',{brandName:SD.brandName,ownerName:SD.ownerName,accent:SD.accent,monthlyTarget:SD.monthlyTarget,widgets2:JSON.stringify(SD.widgets)},'Settings saved')) closeModal();
+  if(await run('saveSettings',{brandName:SD.brandName,ownerName:SD.ownerName,accent:SD.accent,monthlyTarget:SD.monthlyTarget,widgets2:JSON.stringify(SD.widgets),contactPhone:SD.contactPhone,contactEmail:SD.contactEmail,instagram:SD.instagram,website:SD.website,pdfNote:SD.pdfNote},'Settings saved')) closeModal();
 }
 
 /* ---------- small menus ---------- */
@@ -1050,11 +1055,103 @@ function dueList(){
 function moreMenu(){
   modal(mHead('More')+`<div class="m-body"><div class="home-list">
     <div class="home-li" data-act="go" data-arg="plans">${ic('box')}<div class="grow"><b>Plans</b></div></div>
+    <div class="home-li" data-act="pdf">${ic('print')}<div class="grow"><b>Rate card PDF</b><small>Saari services + plans print karo</small></div></div>
     <div class="home-li" data-act="settings" data-arg="brand">${ic('gear')}<div class="grow"><b>Settings</b><small>Logo, naam, colour, target</small></div></div>
     <div class="home-li" data-act="sheet">${ic('sheet')}<div class="grow"><b>Open Google Sheet</b></div></div>
     <div class="home-li" data-act="theme">${ic(document.documentElement.dataset.theme==='dark'?'sun':'moon')}<div class="grow"><b>Dark / Light</b></div></div>
     <div class="home-li" data-act="refresh">${ic('refresh')}<div class="grow"><b>Refresh data</b></div></div>
     <div class="home-li" data-act="logout" style="color:var(--coral)">${ic('logout')}<div class="grow"><b>Log out</b></div></div></div></div>`,'narrow');
+}
+
+
+/* ================= RATE CARD PDF ================= */
+let PD=null;
+function openPdf(client){
+  PD={client:client||'',plans:true,details:true,hideCustom:false};
+  const names=clientList().map(c=>c.name).sort();
+  modal(mHead('Rate card PDF','Saari services aur prices ek page pe, print ya PDF save karo')+`<div class="m-body">
+    <div class="field"><label>Kiske liye?</label><select class="inp" id="pdC"><option value="">Sabke liye (standard prices)</option>${names.map(n=>`<option ${low(n)===low(PD.client)?'selected':''}>${esc(n)}</option>`).join('')}</select><small>Client chunoge to uske special price lagenge</small></div>
+    <div><div class="tg"><span>Service details dikhao</span><label class="sw"><input type="checkbox" id="pdD" checked><i></i></label></div>
+    <div class="tg"><span>Monthly plans bhi dikhao</span><label class="sw"><input type="checkbox" id="pdP" checked><i></i></label></div>
+    <div class="tg"><span>"Custom" price wali services chhupao</span><label class="sw"><input type="checkbox" id="pdH"><i></i></label></div></div>
+    <div class="note-box">Print window khulegi. Wahan <b>Destination: Save as PDF</b> chuno. Phone pe: Share → Print → Save as PDF.</div>
+  </div><div class="m-foot"><button class="btn" data-act="settings" data-arg="brand">${ic('gear')}Contact details</button><span class="grow"></span><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="pdGo">${ic('print')}Create PDF</button></div>`,'narrow');
+  $('#pdGo').onclick=()=>{ PD.client=$('#pdC').value; PD.details=$('#pdD').checked; PD.plans=$('#pdP').checked; PD.hideCustom=$('#pdH').checked; printRateCard(); };
+}
+function rateCardHtml(o){
+  const acc=set('accent'), brand=set('brandName'), logo=set('logo'), c=o.client, now=new Date();
+  const clean=d=>String(d||'').replace(/^\s*\d+\s*(\/-)?\s*/,'').trim();
+  const rows=S.data.services.map(s=>{ const r=c?effRate(c,s.name):{rate:s.rate,src:'standard'}; return {name:s.name,det:clean(s.details),std:s.rate,rate:r.rate,sp:c&&r.rate!=null&&s.rate!=null&&r.rate<s.rate}; })
+    .filter(r=>!(o.hideCustom&&r.rate==null));
+  const isPlan=n=>/plan$/i.test(n), svc=rows.filter(r=>!isPlan(r.name)), planRows=rows.filter(r=>isPlan(r.name));
+  const P=S.data.plans||[], pn=P[0]?P[0].slice(1):[], find=l=>P.findIndex(r=>low(r[0]).startsWith(l)), pi=find('price per month'), bi=find('best for'), ai=find('3 months');
+  const feat=P.map((r,k)=>k).filter(k=>k>0&&k!==pi&&k!==ai&&k!==bi&&k<11&&P[k][0]);
+  const planPrice=i=>{ const r=planRows.find(x=>low(x.name).startsWith(low(pn[i]))); return r&&r.rate!=null?r:null; };
+  const money=r=>r.rate==null?'<span class="cu">On request</span>':(r.sp?`<s>${inr(r.std)}</s>`:'')+inr(r.rate);
+  const contact=[set('contactPhone')&&'📞 '+esc(set('contactPhone')),set('contactEmail')&&'✉ '+esc(set('contactEmail')),set('instagram')&&'IG '+esc(set('instagram')),set('website')&&esc(set('website'))].filter(Boolean).join('<span class="sep">·</span>');
+  const tri=`<svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 4 20.5 19.5h-17z" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/><path d="M16.3 11.9 20.5 19.5h-7.8z" fill="#E01F26"/></svg>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(brand)} Rate Card${c?' - '+esc(c):''}</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:11mm 12mm}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:#1D2230;font-size:12.5px;background:#E6E9F0}
+.page{max-width:820px;margin:20px auto;background:#fff;padding:36px 40px;border-radius:14px;box-shadow:0 10px 30px rgba(30,40,70,.1)}
+@media print{body{background:#fff}.page{margin:0;padding:0;box-shadow:none;border-radius:0;max-width:none}.bar{display:none!important}}
+.bar{position:sticky;top:0;display:flex;gap:10px;justify-content:center;padding:12px;background:#111318;z-index:2}
+.bar button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:10px 18px;cursor:pointer}
+.bar .p{background:#fff;color:#111318}.bar .x{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)}
+.hd{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:2px solid #111318}
+.lg{width:58px;height:58px;border-radius:12px;background:#111318;display:grid;place-items:center;overflow:hidden;flex:none}
+.lg.img{background:#fff;border:1px solid #E5E7EB}.lg img{width:100%;height:100%;object-fit:contain}
+.hd h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em}
+.hd .t{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:${acc}}
+.hd .r{margin-left:auto;text-align:right;font-size:11.5px;color:#6B7281;line-height:1.6}
+.for{margin:18px 0 0;padding:12px 14px;border-radius:10px;background:${acc}14;border:1px solid ${acc}40;font-size:12.5px}
+h2{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#6B7281;margin:20px 0 8px}
+.keep{break-inside:avoid;page-break-inside:avoid}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6B7281;padding:9px 10px;border-bottom:1px solid #E5E7EB;background:#F6F7FA}
+td{padding:8px 10px;border-bottom:1px solid #EEF0F4;vertical-align:top}
+tr{page-break-inside:avoid}
+td.n{color:#9AA1AE;width:28px} td b{font-weight:700;font-size:13px} td .d{color:#6B7281;font-size:11.5px;margin-top:2px}
+td.pr{text-align:right;font-weight:800;font-size:14px;white-space:nowrap}
+s{color:#9AA1AE;font-weight:500;font-size:11.5px;margin-right:6px}
+.cu{font-size:11.5px;font-weight:600;color:#6B7281}
+.sp{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${acc};background:${acc}18;border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:2px}
+.plans{display:grid;grid-template-columns:repeat(${Math.max(1,pn.length)},1fr);gap:12px;page-break-inside:avoid}
+.pl{border:1px solid #E5E7EB;border-radius:12px;padding:14px}
+.pl.hot{background:#111318;color:#fff;border-color:#111318}
+.pl .nm{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.pl .pp{font-size:24px;font-weight:800;margin:6px 0 2px}.pl .pp small{font-size:11px;opacity:.6;font-weight:600}
+.pl .bf{font-size:11px;color:#6B7281;min-height:28px}.pl.hot .bf,.pl.hot li span{color:rgba(255,255,255,.65)}
+.pl ul{list-style:none;padding:0;margin:10px 0 0}.pl li{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed #E5E7EB;font-size:11.5px}
+.pl.hot li{border-color:rgba(255,255,255,.15)}.pl li span{color:#6B7281}.pl li b{text-align:right}
+.ft{break-inside:avoid;margin-top:18px;padding-top:14px;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between;gap:16px;font-size:11px;color:#6B7281;flex-wrap:wrap}
+.ft .c{font-weight:700;color:#1D2230}.sep{margin:0 8px;color:#C9D0DE}
+</style></head><body>
+<div class="bar"><button class="p" onclick="print()">Print / Save as PDF</button><button class="x" onclick="close()">Close</button></div>
+<div class="page">
+  <div class="hd"><div class="lg ${logo?'img':''}">${logo?`<img src="${esc(logo)}" alt="">`:tri}</div>
+    <div><div class="t">Rate card</div><h1>${esc(brand)}</h1></div>
+    <div class="r">${MON[now.getMonth()]} ${now.getFullYear()}<br>Prices in INR (₹)</div></div>
+  ${c?`<div class="for">Prepared for <b>${esc(c)}</b>${discountOf(c)?` · ${discountOf(c)}% special discount applied`:''}${rows.some(r=>r.sp)?' · special prices shown':''}</div>`:''}
+  ${svc.length?`<h2>Services</h2><table><thead><tr><th>#</th><th>Service</th><th style="text-align:right">Price</th></tr></thead><tbody>
+  ${svc.map((r,i)=>`<tr><td class="n">${String(i+1).padStart(2,'0')}</td><td><b>${esc(r.name)}</b>${r.sp?'<span class="sp">Special</span>':''}${o.details&&r.det&&r.det!==String(r.std)?`<div class="d">${esc(r.det)}</div>`:''}</td><td class="pr">${money(r)}</td></tr>`).join('')}
+  </tbody></table>`:''}
+  ${o.plans&&pn.length?`<div class="keep"><h2>Monthly plans</h2><div class="plans">${pn.map((n,i)=>{ const pr=planPrice(i); return `<div class="pl ${i===1?'hot':''}"><div class="nm">${esc(n)}</div>
+    <div class="pp">${pr?((pr.sp?`<s>${inr(pr.std)}</s>`:'')+inr(pr.rate)):esc(pi>=0?P[pi][i+1]:'')}<small> /month</small></div><div class="bf">${esc(bi>=0?P[bi][i+1]:'')}</div>
+    <ul>${feat.map(k=>`<li><span>${esc(P[k][0])}</span><b>${esc(P[k][i+1])}</b></li>`).join('')}</ul></div>`; }).join('')}</div></div>`
+  :(planRows.length?`<h2>Monthly plans</h2><table><tbody>${planRows.map(r=>`<tr><td><b>${esc(r.name)}</b>${r.sp?'<span class="sp">Special</span>':''}</td><td class="pr">${money(r)}<span class="cu"> /month</span></td></tr>`).join('')}</tbody></table>`:'')}
+  <div class="ft"><div>${esc(set('pdfNote'))}</div><div class="c">${contact||esc(set('ownerName'))+' · '+esc(brand)}</div></div>
+</div>
+<script>document.fonts&&document.fonts.ready.then(()=>setTimeout(()=>print(),350));<\/script>
+</body></html>`;
+}
+function printRateCard(){
+  const w=window.open('','_blank');
+  if(!w){ toast('Popup block ho gaya. Browser mein popups allow karo.',true); return; }
+  w.document.open(); w.document.write(rateCardHtml(PD)); w.document.close(); closeModal();
 }
 
 /* ================= IMAGES ================= */
@@ -1113,7 +1210,7 @@ const A={
   settings:s=>openSettings(s), setSec:s=>{ readSettings(); SD.sec=s; drawSettings(); },
   accent:c=>{ SD.accent=c; document.documentElement.style.setProperty('--acc',c); $$('.swc').forEach(s=>s.classList.toggle('on',s.dataset.arg===c)); },
   pickLogo:()=>pick('logo'), resetLogo:async()=>{ readSettings(); await run('saveSettings',{logo:''},'Logo removed'); openSettings('brand'); },
-  dueList:()=>dueList(), more:()=>moreMenu(), logout:()=>logout()
+  dueList:()=>dueList(), more:()=>moreMenu(), pdf:n=>openPdf(n), logout:()=>logout()
 };
 document.addEventListener('click',ev=>{
   if(!ev.target.closest('.menu')) $$('.menu').forEach(m=>m.remove());
