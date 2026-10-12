@@ -37,7 +37,7 @@ const CELL_LIMIT = 49000; // Google Sheet cell mein max ~50,000 characters
 const C = {
   date: 1, client: 2, phone: 3, work: 4, qty: 5, changes: 6,
   rate: 7, amount: 8, status: 9, payment: 10, notes: 11,
-  month: 12, id: 13, saved: 14, by: 15, links: 16, feedback: 17
+  month: 12, id: 13, saved: 14, by: 15, links: 16, feedback: 17, title: 18
 };
 
 // Kaun kya kar sakta hai
@@ -320,10 +320,11 @@ function lockRates(workName, rate) {
 
 function masterTab() {
   const m = tab(MASTER);
-  if (m.getMaxColumns() < C.feedback) m.insertColumnsAfter(m.getMaxColumns(), C.feedback - m.getMaxColumns());
+  if (m.getMaxColumns() < C.title) m.insertColumnsAfter(m.getMaxColumns(), C.title - m.getMaxColumns());
   if (!m.getRange(1, C.by).getValue()) m.getRange(1, C.by).setValue('Added by');
   if (!m.getRange(1, C.links).getValue()) m.getRange(1, C.links).setValue('Files & links');
   if (!m.getRange(1, C.feedback).getValue()) m.getRange(1, C.feedback).setValue('Client feedback');
+  if (!m.getRange(1, C.title).getValue()) m.getRange(1, C.title).setValue('Work title');
   return m;
 }
 
@@ -356,7 +357,7 @@ function getAll(me) {
   let entries = [];
 
   if (last >= 2) {
-    const rows = m.getRange(2, 1, last - 1, C.feedback).getValues();
+    const rows = m.getRange(2, 1, last - 1, C.title).getValues();
     const ids = [];
     let idsChanged = false;
     rows.forEach(r => {
@@ -384,7 +385,8 @@ function getAll(me) {
         notes: String(r[C.notes - 1] || ''),
         by: String(r[C.by - 1] || '').trim(),
         links: String(r[C.links - 1] || ''),
-        feedback: String(r[C.feedback - 1] || '')
+        feedback: String(r[C.feedback - 1] || ''),
+        title: String(r[C.title - 1] || '').trim()
       }));
   }
 
@@ -437,6 +439,7 @@ function writeEntry(row, d, savedRate) {
   s.getRange(row, C.status, 1, 3).setValues([[d.status || 'Pending', d.payment || 'Unpaid', d.notes || '']]);
   s.getRange(row, C.saved).setValue(savedRate === undefined || savedRate === null ? '' : savedRate);
   if (d.links !== undefined) s.getRange(row, C.links).setValue(cleanLinks(d.links));
+  if (d.title !== undefined) s.getRange(row, C.title).setValue(String(d.title || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 120));
 }
 
 function addEntry(d, me) {
@@ -736,7 +739,7 @@ function portalData(client, r) {
   const st = getSettings();
   const all = getAll({ name: 'portal', role: 'owner', view: 'all', money: true }).entries;
   const entries = all.filter(e => low(e.client) === low(client)).map(e => ({
-    id: e.id, date: e.date, work: e.work, qty: e.qty, status: e.status, feedback: e.feedback,
+    id: e.id, date: e.date, work: e.work, title: e.title, qty: e.qty, status: e.status, feedback: e.feedback,
     amount: amounts ? e.amount : null, payment: amounts ? e.payment : null,
     files: parseLinkLines(e.links).filter(l => l.client && /^https?:\/\//i.test(l.url)).map(l => ({ label: l.label, url: l.url }))
   }));
