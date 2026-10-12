@@ -331,6 +331,7 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--text);transition:background
 @keyframes tin{from{opacity:0;transform:translateY(8px)}}
 .loader{position:fixed;top:0;left:0;right:0;height:3px;background:var(--acc);transform-origin:left;animation:load 1.1s ease-in-out infinite;z-index:100}
 @keyframes load{0%{transform:scaleX(0)}60%{transform:scaleX(.8)}100%{transform:scaleX(1);opacity:0}}
+.calm .fill{animation:none}
 .view-in{animation:vin .3s ease both}
 @keyframes vin{from{opacity:0;transform:translateY(6px)}}
 .menu{position:fixed;z-index:70;background:var(--glass-3);border:1px solid var(--line-2);border-radius:10px;padding:5px;box-shadow:var(--shadow-2);min-width:180px;animation:tin .15s ease}
@@ -682,20 +683,61 @@ function applyBrand(){
 }
 
 /* ================= API ================= */
+async function post(action,data){
+  const res=await fetch(CFG.url,{method:'POST',body:JSON.stringify({pin:CFG.pin,action,data:data||{}})});
+  const j=await res.json(); if(!j.ok) throw new Error(j.error||'Error'); return j;
+}
+function setData(d){
+  S.data=Object.assign(clone(EMPTY),d); SY.ids=new Set((S.data.entries||[]).map(e=>e.id));
+  try{ ls&&ls.setItem('vx_brand',JSON.stringify({brandName:set('brandName'),accent:set('accent'),logo:set('logo'),ownerName:set('ownerName')})); }catch(e){}
+  cacheData();
+}
+// Saved copy of the data, so the app opens instantly next time (only on devices where the PIN is remembered)
+function cacheStore(){ try{ return ls&&ls.getItem('vx_pin')?ls:ss&&ss.getItem('vx_pin')?ss:null; }catch(e){ return null; } }
+function cacheData(){ if(S.demo) return; const st=cacheStore(); if(!st) return; try{ st.setItem('vx_data',JSON.stringify(S.data)); }catch(e){ try{ st.removeItem('vx_data'); }catch(_){} } }
+function readCache(){ const st=cacheStore(); if(!st) return null; try{ const d=JSON.parse(st.getItem('vx_data')||'null'); return d&&Array.isArray(d.entries)?d:null; }catch(e){ return null; } }
+function clearCache(){ try{ ls&&ls.removeItem('vx_data'); ss&&ss.removeItem('vx_data'); }catch(e){} }
+
 async function api(action,data){
   if(S.demo) return demoApi(action,data||{});
   loading(true);
-  try{
-    const res=await fetch(CFG.url,{method:'POST',body:JSON.stringify({pin:CFG.pin,action,data:data||{}})});
-    const j=await res.json(); if(!j.ok) throw new Error(j.error||'Error');
-    S.data=Object.assign(clone(EMPTY),j.data);
-    try{ ls&&ls.setItem('vx_brand',JSON.stringify({brandName:set('brandName'),accent:set('accent'),logo:set('logo'),ownerName:set('ownerName')})); }catch(e){}
-    return S.data;
-  } finally { loading(false); }
+  try{ const j=await post(action,data); setData(j.data); return S.data; }
+  finally { loading(false); }
 }
+
+/* Instant saves: the change shows on screen right away, then saves to the sheet in the background (one by one, in order).
+   If the sheet refuses it, the app reloads the real data and shows the error. */
+const INSTANT=new Set(['addEntry','updateEntry','deleteEntry','addService','updateService','deleteService','saveClient','deleteClient','saveSettings','savePlans','deleteMember']);
+const SY={q:Promise.resolve(),n:0,map:{},ids:new Set(),last:null,fail:false};
+window.addEventListener('beforeunload',e=>{ if(SY.n>0){ e.preventDefault(); e.returnValue=''; } });
 async function run(action,data,ok){
-  try{ await api(action,data); if(ok) toast(ok); applyBrand(); render(); return true; }
-  catch(e){ toast(e.message||'Something went wrong',true); return false; }
+  if(S.demo||!INSTANT.has(action)){
+    try{ await api(action,data); if(ok) toast(ok); applyBrand(); render(); return true; }
+    catch(e){ toast(e.message||'Something went wrong',true); return false; }
+  }
+  if(data&&data.id&&SY.map[data.id]&&!S.data.entries.some(e=>e.id===data.id)) data={...data,id:SY.map[data.id]};
+  const snap=clone(S.data), n0=S.data.entries.length;
+  try{ demoApi(action,clone(data||{})); }
+  catch(e){ S.data=snap; toast(e.message||'Something went wrong',true); return false; }
+  const tmp=action==='addEntry'&&S.data.entries.length>n0?S.data.entries[S.data.entries.length-1].id:null;
+  if(ok) toast(ok); applyBrand(); render();
+  SY.n++; loading(true);
+  SY.q=SY.q.then(async()=>{
+    try{
+      const d=clone(data||{}); if(d.id&&SY.map[d.id]) d.id=SY.map[d.id];
+      if(d.id&&/^tmp/.test(d.id)) throw new Error('Could not save this work');
+      const j=await post(action,d);
+      if(tmp){ const nid=j.id||((j.data.entries||[]).find(e=>!SY.ids.has(e.id))||{}).id; if(nid) SY.map[tmp]=nid; }
+      SY.last=j.data; SY.ids=new Set((j.data.entries||[]).map(e=>e.id));
+    }catch(e){ SY.fail=true; toast((e.message||'Could not save')+'. Change not saved.',true); }
+    SY.n--;
+    if(!SY.n){
+      if(SY.fail){ SY.fail=false; try{ SY.last=(await post('getAll')).data; }catch(e){} }
+      if(SY.last){ setData(SY.last); SY.last=null; applyBrand(); render(); }
+    }
+    loading(false);
+  });
+  return true;
 }
 
 /* ================= DEMO ================= */
@@ -705,8 +747,8 @@ function demoApi(a,d){
   const eff=(c,w)=>{ const r=effRate(c,w).rate; return r==null?'':r; };
   const dl=v=>parseLinks(v).map(x=>(x.client?'[client] ':'')+(x.label?x.label+' | ':'')+x.url).join('\n');
   switch(a){
-    case 'addEntry': D.entries.push(calc({...d,links:dl(d.links),by:ME().name,id:'D'+Date.now(),_saved:isNum(d.rate)?+d.rate:eff(d.client,d.work)})); break;
-    case 'updateEntry': { const i=D.entries.findIndex(e=>e.id===d.id), o=D.entries[i]; let sv=o._saved; if(isNum(d.rate)) sv=+d.rate; else if(o.work!==d.work||low(o.client)!==low(d.client)) sv=eff(d.client,d.work); D.entries[i]=calc({...o,...d,links:d.links!==undefined?dl(d.links):o.links,by:o.by,_saved:sv}); break; }
+    case 'addEntry': D.entries.push(calc({...d,links:dl(d.links),by:ME().name,id:(S.demo?'D':'tmp')+Date.now()+Math.floor(Math.random()*1e4),_saved:isNum(d.rate)?+d.rate:eff(d.client,d.work)})); break;
+    case 'updateEntry': { const i=D.entries.findIndex(e=>e.id===d.id), o=D.entries[i]; if(!o) throw new Error('Entry not found. Refresh and try again.'); let sv=o._saved!=null&&o._saved!==''?o._saved:o.rate; if(isNum(d.rate)) sv=+d.rate; else if(o.work!==d.work||low(o.client)!==low(d.client)) sv=eff(d.client,d.work); D.entries[i]=calc({...o,...d,links:d.links!==undefined?dl(d.links):o.links,by:o.by,_saved:sv}); break; }
     case 'deleteEntry': D.entries=D.entries.filter(e=>e.id!==d.id); break;
     case 'addService': if(D.services.some(s=>low(s.name)===low(d.name))) throw new Error('This service already exists'); D.services.push({name:d.name.trim(),rate:+d.price,details:(+d.price)+'/- '+(d.details||'')}); break;
     case 'updateService': { const s=D.services.find(x=>x.name===d.oldName); D.entries.forEach(e=>{ if(e.work===d.oldName){ if(e._saved==null) e._saved=s.rate; e.work=d.name; } }); D.clientPrices.forEach(p=>{ if(p.service===d.oldName) p.service=d.name; }); Object.assign(s,{name:d.name,rate:+d.price,details:d.details}); break; }
@@ -724,7 +766,7 @@ function demoApi(a,d){
     case 'setPortal': { let c=clientProfile(d.client); if(!c){ c={name:d.client,phone:'',photo:'',notes:'',discount:0}; D.clients.push(c); } const po=c.portal||{}; if(d.on&&!d.pin&&!po.hasPin) throw new Error('Set a PIN to turn on the portal');
       c.portal={token:(!po.token||d.newLink)?Array.from({length:40},()=>'0123456789abcdef'[Math.floor(Math.random()*16)]).join(''):po.token,hasPin:po.hasPin||!!d.pin,on:!!d.on,amounts:d.amounts!==false}; break; }
   }
-  D.entries.forEach(calc);
+  if(S.demo) D.entries.forEach(calc);
   return Promise.resolve(D);
 }
 function demoData(){
@@ -804,14 +846,18 @@ function renderChrome(){
   $('#meAv').innerHTML=avatar(me.name,'',''); $('#meAv').dataset.act=isOwner()?'settings':'more';
   applyTheme();
 }
-function go(v){ S.view=v; render(); window.scrollTo({top:0}); }
+function go(v){ S.view=v; render(true); window.scrollTo({top:0}); }
 
-function render(){
+function render(anim){
   S.charts.forEach(c=>c.destroy()); S.charts=[];
   renderChrome();
   if(!allowed(S.view)) S.view='home';
   const v={home:vHome,work:vWork,clients:vClients,services:vServices,plans:vPlans,team:vTeam}[S.view]||vHome;
-  const el=$('#view'); el.innerHTML=v(); el.classList.remove('view-in'); void el.offsetWidth; el.classList.add('view-in');
+  const el=$('#view'), y=window.scrollY, a=document.activeElement, fid=a&&a.id&&el.contains(a)?a.id:'', sel=fid&&a.selectionStart!=null?[a.selectionStart,a.selectionEnd]:null;
+  el.innerHTML=v(); el.classList.toggle('calm',!anim);
+  if(anim){ el.classList.remove('view-in'); void el.offsetWidth; el.classList.add('view-in'); }
+  else { el.classList.remove('view-in'); window.scrollTo(0,y); if(fid){ const f=document.getElementById(fid); if(f){ f.focus(); try{ sel&&f.setSelectionRange(sel[0],sel[1]); }catch(e){} } } }
+  S.anim=!!anim;
   if(S.view==='home') drawCharts();
 }
 const pageH=(eb,title,sub,acts)=>`<div class="page-h"><div><div class="eyebrow">${eb}</div><h1>${title}</h1><p class="sub">${sub}</p></div><div class="head-actions">${acts||''}</div></div>`;
@@ -873,7 +919,7 @@ function drawCharts(){
   S.charts.push(new Chart(cv,{type:'bar',data:{labels:M.keys.map(k=>MON[+k.slice(5)-1]),datasets:[
     {label:'Total work',data:M.keys.map(k=>M.by[k].total),backgroundColor:b2,borderRadius:4,borderSkipped:'bottom',barPercentage:.8,categoryPercentage:.6},
     {label:'Paid',data:M.keys.map(k=>M.by[k].paid),backgroundColor:acc,borderRadius:4,borderSkipped:'bottom',barPercentage:.8,categoryPercentage:.6}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:{duration:700},interaction:{mode:'index',intersect:false},
+    options:{responsive:true,maintainAspectRatio:false,animation:S.anim?{duration:700}:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},tooltip:{backgroundColor:'#111318',padding:10,cornerRadius:8,callbacks:{title:x=>mLabel(M.keys[x[0].dataIndex]),label:c=>` ${c.dataset.label}: ${inr(c.parsed.y)}`}}},
       scales:{x:{grid:{display:false},border:{display:false}},y:{beginAtZero:true,border:{display:false},grid:{color:line},ticks:{maxTicksLimit:5,callback:v=>v>=1000?'₹'+(v/1000)+'k':'₹'+v}}}}}));
 }
@@ -1732,17 +1778,17 @@ async function ptBoot(token,url){
 }
 
 /* ================= BOOT ================= */
-function showApp(){ $('#login').hidden=true; $('#app').hidden=false; $('#demoBanner').hidden=!S.demo; applyBrand(); render(); }
+function showApp(){ $('#login').hidden=true; $('#app').hidden=false; $('#demoBanner').hidden=!S.demo; applyBrand(); render(true); }
 function showLogin(msg){ $('#app').hidden=true; $('#login').hidden=false; $('#urlFld').hidden=!!CFG.url; $('#lUrl').value=CFG.url; $('#lErr').textContent=msg||''; setTimeout(()=>$('#lPin').focus(),60); }
 async function login(){
   const url=(CFG.url||$('#lUrl').value).trim(), pin=$('#lPin').value.trim();
   if(!url) return $('#lErr').textContent='Paste the Apps Script URL'; if(!pin) return $('#lErr').textContent='Enter your PIN';
   CFG.url=url; CFG.pin=pin; S.demo=false; const b=$('#lBtn'); b.disabled=true; b.textContent='Checking…';
-  try{ await api('getAll'); saveCfg($('#lRem').checked); showApp(); }
+  try{ await api('getAll'); saveCfg($('#lRem').checked); cacheData(); showApp(); }
   catch(e){ $('#lErr').textContent=e.message==='Wrong PIN'?'Wrong PIN':'Could not connect: '+e.message; if(!DEFAULT_API_URL) $('#urlFld').hidden=false; }
   finally{ b.disabled=false; b.textContent='Sign in'; }
 }
-function logout(){ try{ ls&&ls.removeItem('vx_pin'); ss&&ss.removeItem('vx_pin'); ls&&ls.removeItem('vx_brand'); }catch(e){} CFG.pin=''; S.demo=false; S.view='home'; S.data=clone(EMPTY); closeModal(); showLogin(); $('#lPin').value=''; }
+function logout(){ clearCache(); try{ ls&&ls.removeItem('vx_pin'); ss&&ss.removeItem('vx_pin'); ls&&ls.removeItem('vx_brand'); }catch(e){} CFG.pin=''; S.demo=false; S.view='home'; S.data=clone(EMPTY); closeModal(); showLogin(); $('#lPin').value=''; }
 $('#lBtn').onclick=login; $('#lPin').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
 $('#demoBtn').onclick=()=>{ S.demo=true; S.data=demoData(); showApp(); };
 (async function boot(){
@@ -1757,7 +1803,14 @@ $('#demoBtn').onclick=()=>{ S.demo=true; S.data=demoData(); showApp(); };
   try{ S.data.settings=JSON.parse((ls&&ls.getItem('vx_brand'))||'{}')||{}; }catch(e){}
   applyBrand();
   if(new URLSearchParams(location.search).has('demo')){ S.demo=true; S.data=demoData(); return showApp(); }
-  if(CFG.url&&CFG.pin){ try{ await api('getAll'); return showApp(); }catch(e){ return showLogin(e.message==='Wrong PIN'?'Wrong PIN':''); } }
+  if(CFG.url&&CFG.pin){
+    const cached=readCache();
+    if(cached){ S.data=Object.assign(clone(EMPTY),cached); SY.ids=new Set(S.data.entries.map(e=>e.id)); showApp(); loading(true);
+      try{ const j=await post('getAll'); if(!SY.n){ setData(j.data); applyBrand(); render(); } }
+      catch(e){ if(/PIN|access/i.test(e.message)){ logout(); showLogin(e.message); } else toast('Offline: showing last saved data',true); }
+      finally{ loading(false); }
+      return; }
+    try{ await api('getAll'); return showApp(); }catch(e){ return showLogin(e.message==='Wrong PIN'?'Wrong PIN':''); } }
   showLogin();
 })();
 </script>

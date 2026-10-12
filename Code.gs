@@ -46,12 +46,16 @@ const MEMBER_OK = ['getAll', 'addEntry', 'updateEntry', 'deleteEntry', 'saveClie
 // Clients tab portal columns
 const CP = { token: 7, pin: 8, on: 9, amounts: 10 };
 
+// Per-request memo: each sheet/tab/settings is read once per request
+let MEMO = {};
+
 function doGet() {
   return json({ ok: true, msg: 'Vertex API is running' });
 }
 
 function doPost(e) {
   let req;
+  MEMO = {};
   try {
     req = JSON.parse(e.postData.contents);
   } catch (err) {
@@ -71,9 +75,10 @@ function doPost(e) {
   try {
     lock.waitLock(20000);
     const d = req.data || {};
+    let newEntryId = '';
     switch (action) {
       case 'getAll': break;
-      case 'addEntry': addEntry(d, me); break;
+      case 'addEntry': newEntryId = addEntry(d, me); break;
       case 'updateEntry': updateEntry(d, me); break;
       case 'deleteEntry': deleteEntry(d.id, me); break;
       case 'addService': addService(d); break;
@@ -89,7 +94,7 @@ function doPost(e) {
       default: return json({ ok: false, error: 'Unknown action' });
     }
     SpreadsheetApp.flush();
-    return json({ ok: true, data: getAll(me) });
+    return json(newEntryId ? { ok: true, id: newEntryId, data: getAll(me) } : { ok: true, data: getAll(me) });
   } catch (err) {
     return json({ ok: false, error: String(err.message || err) });
   } finally {
@@ -102,11 +107,12 @@ function doPost(e) {
 function json(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
-function book() { return SpreadsheetApp.getActiveSpreadsheet(); }
+function book() { return MEMO.book || (MEMO.book = SpreadsheetApp.getActiveSpreadsheet()); }
 function tab(name) {
+  if (MEMO['s:' + name]) return MEMO['s:' + name];
   const s = book().getSheetByName(name);
   if (!s) throw new Error('Tab not found: ' + name);
-  return s;
+  return (MEMO['s:' + name] = s);
 }
 function num(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
 function isNum(v) { return v !== '' && v !== null && v !== undefined && !isNaN(Number(v)); }
@@ -140,6 +146,7 @@ function lastRowIn(sheet, col) {
 }
 
 function ensureTab(name, headers) {
+  if (MEMO['e:' + name]) return MEMO['e:' + name];
   let s = book().getSheetByName(name);
   if (!s) {
     s = book().insertSheet(name);
@@ -150,7 +157,8 @@ function ensureTab(name, headers) {
   if (s.getMaxColumns() < headers.length) s.insertColumnsAfter(s.getMaxColumns(), headers.length - s.getMaxColumns());
   const head = s.getRange(1, 1, 1, headers.length).getValues()[0];
   headers.forEach((h, i) => { if (!head[i]) s.getRange(1, i + 1).setValue(h); });
-  return s;
+  MEMO['s:' + name] = s;
+  return (MEMO['e:' + name] = s);
 }
 function clientsTab() { return ensureTab(CLIENTS, ['Client name', 'Phone', 'Photo (set from website)', 'Notes', 'Discount %', 'Files & links', 'Portal link code', 'Portal PIN (locked)', 'Portal on', 'Show amounts']); }
 function cpTab() { return ensureTab(CLIENT_PRICES, ['Client name', 'Service', 'Special price (₹)']); }
@@ -200,10 +208,11 @@ function auth(pin) {
 function teamTab() { return ensureTab(TEAM, ['Name', 'PIN (locked)', 'Role', 'Can see', 'Money', 'Active', 'Phone', 'Added on']); }
 function yes(v) { return low(v) === 'yes' || v === true; }
 function readTeam() {
+  if (MEMO.team) return MEMO.team;
   const s = teamTab();
   const last = lastRowIn(s, 1);
-  if (last < 2) return [];
-  return s.getRange(2, 1, last - 1, 8).getValues().filter(r => r[0] !== '').map(r => ({
+  if (last < 2) return (MEMO.team = []);
+  return MEMO.team = s.getRange(2, 1, last - 1, 8).getValues().filter(r => r[0] !== '').map(r => ({
     name: String(r[0]).trim(), hash: String(r[1] || ''), role: low(r[2]) === 'admin' ? 'admin' : 'member',
     view: low(r[3]) === 'all' ? 'all' : 'own', money: yes(r[4]), active: r[5] === '' ? true : yes(r[5]),
     phone: String(r[6] || ''), added: fmtDate(r[7])
@@ -250,6 +259,7 @@ function saveMember(d) {
     name, hash, d.role === 'admin' ? 'Admin' : 'Member', d.view === 'all' ? 'All' : 'Own',
     d.money ? 'Yes' : 'No', d.active === false ? 'No' : 'Yes', d.phone ? "'" + String(d.phone).trim() : '', added
   ]]);
+  MEMO.team = null;
   if (oldName && name !== oldName) renameInColumn(tab(MASTER), C.by, oldName, name);
 }
 
@@ -257,6 +267,7 @@ function deleteMember(name) {
   const row = findMemberRow(name);
   if (row < 0) throw new Error('Member not found');
   teamTab().deleteRow(row);
+  MEMO.team = null;
 }
 
 /* ---------- prices ---------- */
@@ -319,13 +330,13 @@ function lockRates(workName, rate) {
 /* ---------- read ---------- */
 
 function masterTab() {
+  if (MEMO.master) return MEMO.master;
   const m = tab(MASTER);
   if (m.getMaxColumns() < C.title) m.insertColumnsAfter(m.getMaxColumns(), C.title - m.getMaxColumns());
-  if (!m.getRange(1, C.by).getValue()) m.getRange(1, C.by).setValue('Added by');
-  if (!m.getRange(1, C.links).getValue()) m.getRange(1, C.links).setValue('Files & links');
-  if (!m.getRange(1, C.feedback).getValue()) m.getRange(1, C.feedback).setValue('Client feedback');
-  if (!m.getRange(1, C.title).getValue()) m.getRange(1, C.title).setValue('Work title');
-  return m;
+  const head = m.getRange(1, 1, 1, C.title).getValues()[0];
+  [[C.by, 'Added by'], [C.links, 'Files & links'], [C.feedback, 'Client feedback'], [C.title, 'Work title']]
+    .forEach(([col, name]) => { if (!head[col - 1]) m.getRange(1, col).setValue(name); });
+  return (MEMO.master = m);
 }
 
 /* ---------- files & links ---------- */
@@ -445,7 +456,7 @@ function writeEntry(row, d, savedRate) {
 function addEntry(d, me) {
   me = me || { role: 'owner', money: true, name: '' };
   if (!d.client) throw new Error('Client name is required');
-  if (!d.work) throw new Error('Work type chuno');
+  if (!d.work) throw new Error('Choose a work type');
   const s = masterTab();
   const row = lastRowIn(s, C.client) + 1;
   if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 100);
@@ -455,8 +466,10 @@ function addEntry(d, me) {
   }
   const rate = isNum(d.rate) ? Number(d.rate) : effectiveRate(d.client, d.work);
   writeEntry(row, d, rate);
-  s.getRange(row, C.id).setValue(newId());
+  const id = newId();
+  s.getRange(row, C.id).setValue(id);
   s.getRange(row, C.by).setValue(me.name || ownerName());
+  return id;
 }
 
 function entryOwner(row) {
@@ -481,20 +494,21 @@ function updateEntry(d, me) {
   const s = masterTab();
   const row = findEntryRow(d.id);
   assertMine(row, me);
+  const cur = s.getRange(row, 1, 1, C.title).getValues()[0];
+  const v = col => cur[col - 1];
   if (me && me.role === 'member') {
     d.rate = '';
     if (!me.money) {
-      d.payment = s.getRange(row, C.payment).getValue() || 'Unpaid';
-      const ch = s.getRange(row, C.changes).getValue();
-      d.changes = ch === '' ? '' : ch;
+      d.payment = v(C.payment) || 'Unpaid';
+      d.changes = v(C.changes) === '' ? '' : v(C.changes);
     }
   }
-  const oldWork = String(s.getRange(row, C.work).getValue()).trim();
-  const oldClient = String(s.getRange(row, C.client).getValue()).trim();
-  const oldStatus = String(s.getRange(row, C.status).getValue()).trim();
-  const fb = String(s.getRange(row, C.feedback).getValue() || '');
+  const oldWork = String(v(C.work)).trim();
+  const oldClient = String(v(C.client)).trim();
+  const oldStatus = String(v(C.status)).trim();
+  const fb = String(v(C.feedback) || '');
   if (d.status === 'Delivered' && oldStatus !== 'Delivered' && /^changes/i.test(fb)) s.getRange(row, C.feedback).setValue(''); // re-delivered -> client reviews again
-  let saved = s.getRange(row, C.saved).getValue();
+  let saved = v(C.saved);
   if (isNum(d.rate)) saved = Number(d.rate);
   else if (oldWork !== d.work || low(oldClient) !== low(d.client)) saved = effectiveRate(d.client, d.work);
   writeEntry(row, d, saved);
@@ -771,11 +785,12 @@ function portalFeedback(client, d) {
 /* ---------- settings (brand, logo, colour, target) ---------- */
 
 function getSettings() {
+  if (MEMO.settings) return MEMO.settings;
   const s = settingsTab();
   const last = lastRowIn(s, 1);
   const o = {};
   if (last >= 2) s.getRange(2, 1, last - 1, 2).getValues().forEach(r => { if (r[0] !== '') o[String(r[0])] = r[1]; });
-  return o;
+  return (MEMO.settings = o);
 }
 
 function saveSettings(d) {
@@ -793,6 +808,7 @@ function saveSettings(d) {
     if (row < 0) row = last + 1;
     s.getRange(row, 1, 1, 2).setValues([[k, v]]);
   });
+  MEMO.settings = null;
 }
 
 /* ---------- plans (text rows only, price rows are formulas) ---------- */
