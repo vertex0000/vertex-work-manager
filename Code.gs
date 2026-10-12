@@ -1,26 +1,26 @@
 /**
  * Vertex Work Manager: Google Apps Script backend
- * Sheet ke andar: Extensions > Apps Script > is file ko paste karo.
- * Project Settings > Script properties > PIN = apna PIN
+ * In the sheet: Extensions > Apps Script > paste this file.
+ * Project Settings > Script properties > PIN = your PIN
  *
- * Rate kaise decide hota hai (har nayi entry pe):
- *   1. Client ka special price (Client Prices tab)  -> agar set hai
- *   2. Client ka Discount % (Clients tab)           -> standard price pe % kam
- *   3. Standard price (Price List tab)              -> baaki sab clients
- * Entry ka rate "Saved rate" column mein lock ho jata hai, taaki price
- * badalne se purana hisaab na badle.
+ * How the rate is decided (for every new entry):
+ *   1. Client's special price (Client Prices tab)  -> if set
+ *   2. Client's Discount % (Clients tab)           -> % off standard price
+ *   3. Standard price (Price List tab)             -> all other clients
+ * The entry's rate is locked in the "Saved rate" column, so changing a
+ * price later doesn't change old amounts.
  *
- * Login (sirf PIN):
+ * Login (PIN only):
  *   Owner  -> Script properties > PIN
- *   Team   -> website ke Team page se banta hai. Team tab mein PIN hash ho ke
- *             save hota hai (asli PIN kahin nahi dikhta). Har member ka PIN alag.
+ *   Team   -> created from the website's Team page. PINs are stored hashed in
+ *             the Team tab (the real PIN is never shown). Each member has a unique PIN.
  *
- * Files & links: Master (col P) aur Clients (col F) mein, ek line = "Label | https://..."
- *   "[client] " se shuru hone wali line client portal pe bhi dikhti hai.
+ * Files & links: Master (col P) and Clients (col F), one line = "Label | https://..."
+ *   Lines starting with "[client] " are also shown on the client portal.
  *
- * Client portal: har client ka alag link (Clients col G) + PIN (col H, hash).
- *   Client sirf apna kaam, client-visible files aur (on ho to) amount dekhta hai.
- *   Approve / Changes feedback Master col Q mein aata hai.
+ * Client portal: each client has their own link (Clients col G) + PIN (col H, hashed).
+ *   The client sees only their own work, client-visible files and (if on) amounts.
+ *   Approve / Changes feedback goes to Master col Q.
  */
 
 const MASTER = 'Master';
@@ -30,8 +30,8 @@ const CLIENTS = 'Clients';
 const CLIENT_PRICES = 'Client Prices';
 const SETTINGS = 'Settings';
 const TEAM = 'Team';
-const MAX_FAILS = 15;      // itne galat PIN ke baad 10 minute lock
-const CELL_LIMIT = 49000; // Google Sheet cell mein max ~50,000 characters
+const MAX_FAILS = 15;      // lock for 10 minutes after this many wrong PINs
+const CELL_LIMIT = 49000; // a Google Sheet cell holds max ~50,000 characters
 
 // Master tab columns (1-based)
 const C = {
@@ -40,7 +40,7 @@ const C = {
   month: 12, id: 13, saved: 14, by: 15, links: 16, feedback: 17, title: 18
 };
 
-// Kaun kya kar sakta hai
+// Who can do what
 const OWNER_ONLY = ['saveMember', 'deleteMember', 'saveSettings'];
 const MEMBER_OK = ['getAll', 'addEntry', 'updateEntry', 'deleteEntry', 'saveClient'];
 // Clients tab portal columns
@@ -64,8 +64,8 @@ function doPost(e) {
   try { me = auth(req.pin); } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
 
   const action = String(req.action || '');
-  if (me.role !== 'owner' && OWNER_ONLY.indexOf(action) >= 0) return json({ ok: false, error: 'Ye sirf owner kar sakta hai' });
-  if (me.role === 'member' && MEMBER_OK.indexOf(action) < 0) return json({ ok: false, error: 'Is kaam ki permission nahi hai' });
+  if (me.role !== 'owner' && OWNER_ONLY.indexOf(action) >= 0) return json({ ok: false, error: 'Only the owner can do this' });
+  if (me.role === 'member' && MEMBER_OK.indexOf(action) < 0) return json({ ok: false, error: 'You don\'t have permission for this' });
 
   const lock = LockService.getScriptLock();
   try {
@@ -170,7 +170,7 @@ function hashPin(pin) {
 }
 function ownerPin() {
   const p = props().getProperty('PIN');
-  if (!p) throw new Error('PIN not set. Script properties mein PIN add karo.');
+  if (!p) throw new Error('PIN not set. Add a PIN in Script properties.');
   return String(p).trim();
 }
 function ownerName() { const v = getSettings().ownerName; return v ? String(v).trim() : 'Owner'; }
@@ -180,14 +180,14 @@ function auth(pin) {
   const owner = ownerPin();
   const cache = CacheService.getScriptCache();
   const fails = Number(cache.get('pinFails') || 0);
-  if (fails >= MAX_FAILS) throw new Error('Bahut baar galat PIN daala gaya. 10 minute baad try karo.');
+  if (fails >= MAX_FAILS) throw new Error('Too many wrong PIN attempts. Try again in 10 minutes.');
   const ok = me => { if (fails) cache.put('pinFails', '0', 1); return me; };
   if (pin && pin === owner) return ok({ name: ownerName(), role: 'owner', view: 'all', money: true });
   if (pin) {
     const h = hashPin(pin);
     const m = readTeam().find(t => t.hash === h);
     if (m) {
-      if (!m.active) throw new Error('Tumhara access band hai. Owner se baat karo.');
+      if (!m.active) throw new Error('Your access is turned off. Please contact the owner.');
       return ok({ name: m.name, role: m.role, view: m.role === 'admin' ? 'all' : m.view, money: m.role === 'admin' ? true : m.money });
     }
   }
@@ -222,24 +222,24 @@ function findMemberRow(name) {
 function saveMember(d) {
   const name = String(d.name || '').trim();
   const oldName = String(d.oldName || '').trim();
-  if (!name) throw new Error('Member ka naam zaroori hai');
-  if (low(name) === low(ownerName())) throw new Error('Ye naam owner ka hai, doosra naam rakho');
+  if (!name) throw new Error('Member name is required');
+  if (low(name) === low(ownerName())) throw new Error('This name belongs to the owner, choose another name');
   const s = teamTab();
   let row = oldName ? findMemberRow(oldName) : -1;
-  if (oldName && row < 0) throw new Error('Member nahi mila. Refresh karo.');
+  if (oldName && row < 0) throw new Error('Member not found. Please refresh.');
   const other = findMemberRow(name);
-  if (other > 0 && other !== row) throw new Error('Is naam ka member pehle se hai');
+  if (other > 0 && other !== row) throw new Error('A member with this name already exists');
 
   let hash = row > 0 ? String(s.getRange(row, 2).getValue()) : '';
   const pin = String(d.pin || '').trim();
   if (pin) {
-    if (!/^\d{6,12}$/.test(pin)) throw new Error('PIN 6 se 12 number ka hona chahiye');
-    if (pin === ownerPin()) throw new Error('Ye PIN owner ka hai, doosra PIN rakho');
+    if (!/^\d{6,12}$/.test(pin)) throw new Error('PIN must be 6 to 12 digits');
+    if (pin === ownerPin()) throw new Error('This PIN belongs to the owner, choose another PIN');
     const h = hashPin(pin);
-    if (readTeam().some(t => t.hash === h && low(t.name) !== low(oldName))) throw new Error('Ye PIN kisi aur member ka hai, doosra PIN rakho');
+    if (readTeam().some(t => t.hash === h && low(t.name) !== low(oldName))) throw new Error('This PIN is used by another member, choose another PIN');
     hash = h;
   }
-  if (!hash) throw new Error('Naye member ke liye PIN zaroori hai');
+  if (!hash) throw new Error('A PIN is required for a new member');
 
   if (row < 0) {
     row = lastRowIn(s, 1) + 1;
@@ -255,7 +255,7 @@ function saveMember(d) {
 
 function deleteMember(name) {
   const row = findMemberRow(name);
-  if (row < 0) throw new Error('Member nahi mila');
+  if (row < 0) throw new Error('Member not found');
   teamTab().deleteRow(row);
 }
 
@@ -288,7 +288,7 @@ function clientDiscount(name) {
   return Math.max(0, Math.min(100, num(v)));
 }
 
-// Is client ke liye is service ka rate
+// Rate of this service for this client
 function effectiveRate(client, work) {
   const sp = getClientPrices().find(p => low(p.client) === low(client) && p.service === String(work).trim());
   if (sp) return sp.price;
@@ -330,7 +330,7 @@ function masterTab() {
 
 /* ---------- files & links ---------- */
 
-// Website se list aati hai [{label,url}], sheet mein "Label | https://..." har line pe
+// Website sends a list [{label,url}]; sheet stores "Label | https://..." one per line
 function parseLinkLines(v) {
   return String(v || '').split('\n').map(l => {
     let client = false;
@@ -403,7 +403,7 @@ function getAll(me) {
 
   let plans = [];
   try { plans = tab(PLANS).getRange('A3:D15').getDisplayValues(); } catch (e) { plans = []; }
-  if (!me.money) {                                  // paisa nahi dikhana to price bhi nahi
+  if (!me.money) {                                  // no money access -> hide prices too
     services.forEach(sv => { sv.rate = null; sv.details = ''; });
     plans = [];
   }
@@ -444,13 +444,13 @@ function writeEntry(row, d, savedRate) {
 
 function addEntry(d, me) {
   me = me || { role: 'owner', money: true, name: '' };
-  if (!d.client) throw new Error('Client name zaroori hai');
+  if (!d.client) throw new Error('Client name is required');
   if (!d.work) throw new Error('Work type chuno');
   const s = masterTab();
   const row = lastRowIn(s, C.client) + 1;
   if (row > s.getMaxRows()) s.insertRowsAfter(s.getMaxRows(), 100);
   if (me.role === 'member') {
-    d.rate = '';                                   // member rate khud set nahi karta
+    d.rate = '';                                   // members can't set the rate themselves
     if (!me.money) { d.payment = 'Unpaid'; d.changes = ''; }
   }
   const rate = isNum(d.rate) ? Number(d.rate) : effectiveRate(d.client, d.work);
@@ -464,7 +464,7 @@ function entryOwner(row) {
   return v || ownerName();
 }
 function assertMine(row, me) {
-  if (me && me.role === 'member' && low(entryOwner(row)) !== low(me.name)) throw new Error('Ye entry kisi aur ne add ki hai, tum ise badal nahi sakte');
+  if (me && me.role === 'member' && low(entryOwner(row)) !== low(me.name)) throw new Error('This entry was added by someone else, you can\'t edit it');
 }
 
 function findEntryRow(id) {
@@ -474,7 +474,7 @@ function findEntryRow(id) {
     const ids = s.getRange(2, C.id, last - 1, 1).getValues();
     for (let i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return i + 2;
   }
-  throw new Error('Entry nahi mili. Refresh karke dobara try karo.');
+  throw new Error('Entry not found. Refresh and try again.');
 }
 
 function updateEntry(d, me) {
@@ -493,7 +493,7 @@ function updateEntry(d, me) {
   const oldClient = String(s.getRange(row, C.client).getValue()).trim();
   const oldStatus = String(s.getRange(row, C.status).getValue()).trim();
   const fb = String(s.getRange(row, C.feedback).getValue() || '');
-  if (d.status === 'Delivered' && oldStatus !== 'Delivered' && /^changes/i.test(fb)) s.getRange(row, C.feedback).setValue(''); // dobara deliver -> client phir se review karega
+  if (d.status === 'Delivered' && oldStatus !== 'Delivered' && /^changes/i.test(fb)) s.getRange(row, C.feedback).setValue(''); // re-delivered -> client reviews again
   let saved = s.getRange(row, C.saved).getValue();
   if (isNum(d.rate)) saved = Number(d.rate);
   else if (oldWork !== d.work || low(oldClient) !== low(d.client)) saved = effectiveRate(d.client, d.work);
@@ -524,8 +524,8 @@ function rateFormula(row) {
 
 function addService(d) {
   const name = String(d.name || '').trim();
-  if (!name) throw new Error('Service name zaroori hai');
-  if (findServiceRow(name) > 0) throw new Error('Ye service pehle se hai');
+  if (!name) throw new Error('Service name is required');
+  if (findServiceRow(name) > 0) throw new Error('This service already exists');
   const price = num(d.price);
   const s = tab(PRICES);
   const row = lastRowIn(s, 3) + 1;
@@ -545,11 +545,11 @@ function renameInColumn(sheet, col, oldName, newName) {
 function updateService(d) {
   const oldName = String(d.oldName || '').trim();
   const name = String(d.name || '').trim();
-  if (!name) throw new Error('Service name zaroori hai');
+  if (!name) throw new Error('Service name is required');
   const s = tab(PRICES);
   const row = findServiceRow(oldName);
-  if (row < 0) throw new Error('Service nahi mili. Refresh karo.');
-  if (low(name) !== low(oldName) && findServiceRow(name) > 0) throw new Error('Is naam ki service pehle se hai');
+  if (row < 0) throw new Error('Service not found. Please refresh.');
+  if (low(name) !== low(oldName) && findServiceRow(name) > 0) throw new Error('A service with this name already exists');
 
   lockRates(oldName, priceMap()[oldName]);
 
@@ -581,7 +581,7 @@ function deleteRowsWhere(sheet, test) {
 
 function deleteService(name) {
   const row = findServiceRow(name);
-  if (row < 0) throw new Error('Service nahi mili');
+  if (row < 0) throw new Error('Service not found');
   const n = String(name).trim();
   lockRates(n, priceMap()[n]);
   tab(PRICES).deleteRow(row);
@@ -615,15 +615,15 @@ function findClientRow(name) {
 
 function saveClient(d, me) {
   if (me && me.role === 'member') {
-    delete d.discount; delete d.prices;            // pricing sirf owner/admin
-    if (d.oldName && low(d.oldName) !== low(d.name)) throw new Error('Client ka naam sirf owner badal sakta hai');
+    delete d.discount; delete d.prices;            // pricing is owner/admin only
+    if (d.oldName && low(d.oldName) !== low(d.name)) throw new Error('Only the owner can rename a client');
   }
   const name = String(d.name || '').trim();
-  if (!name) throw new Error('Client name zaroori hai');
+  if (!name) throw new Error('Client name is required');
   const oldName = String(d.oldName || name).trim();
-  if (d.photo && String(d.photo).length > CELL_LIMIT) throw new Error('Photo bahut badi hai, choti photo try karo');
+  if (d.photo && String(d.photo).length > CELL_LIMIT) throw new Error('Photo is too large, try a smaller one');
   const s = clientsTab();
-  if (low(name) !== low(oldName) && findClientRow(name) > 0) throw new Error('Is naam ka client pehle se hai');
+  if (low(name) !== low(oldName) && findClientRow(name) > 0) throw new Error('A client with this name already exists');
 
   let row = findClientRow(oldName);
   if (row < 0) {
@@ -647,7 +647,7 @@ function saveClient(d, me) {
   }
   if (me && me.role === 'member') return;
 
-  // special prices: website se puri list aati hai, purani hata ke nayi likho
+  // special prices: website sends the full list; replace old with new
   if (Array.isArray(d.prices)) {
     deleteRowsWhere(cp, r => low(r[0]) === low(name));
     const rows = d.prices
@@ -669,7 +669,7 @@ function deleteClient(name) {
 
 /* ---------- client portal ---------- */
 
-// Owner/admin: portal on/off, PIN, amount dikhana, naya link
+// Owner/admin: portal on/off, PIN, show amounts, new link
 function setPortal(d) {
   const name = String(d.client || '').trim();
   if (!name) throw new Error('Client chuno');
@@ -682,10 +682,10 @@ function setPortal(d) {
   let pinHash = String(cur[CP.pin - 1] || '');
   const pin = String(d.pin || '').trim();
   if (pin) {
-    if (!/^\d{4,8}$/.test(pin)) throw new Error('Client PIN 4 se 8 number ka ho');
+    if (!/^\d{4,8}$/.test(pin)) throw new Error('Client PIN must be 4 to 8 digits');
     pinHash = hashPin('client|' + pin);
   }
-  if (d.on && !pinHash) throw new Error('Portal on karne ke liye PIN set karo');
+  if (d.on && !pinHash) throw new Error('Set a PIN to turn on the portal');
   s.getRange(row, CP.token, 1, 4).setValues([[
     token, pinHash,
     d.on ? 'Yes' : 'No',
@@ -710,12 +710,12 @@ function portalRequest(req) {
   const cache = CacheService.getScriptCache();
   const key = 'pf_' + String(req.portal).slice(0, 48);
   const fails = Number(cache.get(key) || 0);
-  if (fails >= 10) return json({ ok: false, error: 'Bahut baar galat PIN. 15 minute baad try karo.' });
+  if (fails >= 10) return json({ ok: false, error: 'Too many wrong PINs. Try again in 15 minutes.' });
   const found = portalClient(req.portal);
   const bad = msg => { cache.put(key, String(fails + 1), 900); return json({ ok: false, error: msg }); };
-  if (!found) return bad('Link sahi nahi hai. Naya link maango.');
+  if (!found) return bad('This link is not valid. Please ask for a new link.');
   const r = found.r;
-  if (!yes(r[CP.on - 1])) return json({ ok: false, error: 'Portal abhi band hai. Agency se baat karo.' });
+  if (!yes(r[CP.on - 1])) return json({ ok: false, error: 'The portal is currently off. Please contact the agency.' });
   if (!r[CP.pin - 1] || hashPin('client|' + String(req.pin || '').trim()) !== String(r[CP.pin - 1])) return bad('Wrong PIN');
   if (fails) cache.put(key, '0', 1);
 
@@ -755,14 +755,14 @@ function portalData(client, r) {
 function portalFeedback(client, d) {
   const s = masterTab();
   const row = findEntryRow(d.id);
-  if (low(s.getRange(row, C.client).getValue()) !== low(client)) throw new Error('Ye kaam aapka nahi hai');
-  if (String(s.getRange(row, C.status).getValue()) !== 'Delivered') throw new Error('Kaam deliver hone ke baad hi feedback de sakte ho');
+  if (low(s.getRange(row, C.client).getValue()) !== low(client)) throw new Error('This work is not yours');
+  if (String(s.getRange(row, C.status).getValue()) !== 'Delivered') throw new Error('You can give feedback only after the work is delivered');
   const note = String(d.comment || '').replace(/[\r\n|]+/g, ' ').trim().slice(0, 500);
   const date = Utilities.formatDate(new Date(), tz(), 'yyyy-MM-dd');
   if (d.decision === 'approve') {
     s.getRange(row, C.feedback).setValue('Approved | ' + date + (note ? ' | ' + note : ''));
   } else if (d.decision === 'changes') {
-    if (!note) throw new Error('Kya change chahiye, likho');
+    if (!note) throw new Error('Please describe the changes');
     s.getRange(row, C.feedback).setValue('Changes | ' + date + ' | ' + note);
     s.getRange(row, C.status).setValue('In progress');
   } else throw new Error('Approve ya Changes chuno');
@@ -783,7 +783,7 @@ function saveSettings(d) {
   Object.keys(d).forEach(k => {
     let v = d[k];
     if (typeof v === 'object' && v !== null) v = JSON.stringify(v);
-    if (String(v).length > CELL_LIMIT) throw new Error('Logo/image bahut badi hai, choti image try karo');
+    if (String(v).length > CELL_LIMIT) throw new Error('Logo/image is too large, try a smaller one');
     const last = lastRowIn(s, 1);
     let row = -1;
     if (last >= 2) {
@@ -799,7 +799,7 @@ function saveSettings(d) {
 
 function savePlans(rows) {
   if (!rows || !rows.length) return;
-  // Plans!A3:D13 = header + feature rows. Row 14-15 (price) formulas hain, unhe nahi chhedte.
+  // Plans!A3:D13 = header + feature rows. Rows 14-15 (price) are formulas, left untouched.
   const data = rows.slice(0, 11).map(r => [0, 1, 2, 3].map(i => (r[i] === undefined ? '' : String(r[i]))));
   while (data.length < 11) data.push(['', '', '', '']);
   tab(PLANS).getRange(3, 1, 11, 4).setValues(data);
